@@ -1,3 +1,10 @@
+// Import CodeMirror packages at the top
+import { basicSetup } from '@codemirror/basic-setup';
+import { EditorView, keymap } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
+import { javascript } from '@codemirror/lang-javascript';
+import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+
 // Node management and rendering system
 class NodeSystem {
   constructor() {
@@ -141,20 +148,15 @@ function process(input) {
     }
   }
 
-  async initializeCodeMirror(node) {
+  initializeCodeMirror(node) {
     const editorContainer = node.element.querySelector('.code-editor');
-    const { basicSetup } = await import('@codemirror/basic-setup');
-    const { EditorView, keymap } = await import('@codemirror/view');
-    const { EditorState } = await import('@codemirror/state');
-    const { javascript } = await import('@codemirror/lang-javascript');
-    const { vscodeDark } = await import('@uiw/codemirror-theme-vscode');
 
     const startState = EditorState.create({
       doc: node.code,
       extensions: [
         basicSetup,
-        vscodeDark,
         javascript(),
+        vscodeDark,
         EditorView.updateListener.of(update => {
           if (update.docChanged) {
             node.code = update.state.doc.toString();
