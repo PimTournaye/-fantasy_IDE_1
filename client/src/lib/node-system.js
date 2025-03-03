@@ -35,14 +35,20 @@ class NodeSystem {
     });
 
     editor.on('change', () => {
-      isExpanded = true;
-      this.updateEditorVisibility();
       const fragmentCode = editor.getValue();
       this.updateShader(fragmentCode);
     });
 
-    // Show editor initially
+    // Initial visibility
     this.updateEditorVisibility();
+
+    // Setup escape key handler
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isExpanded) {
+        isExpanded = false;
+        this.updateEditorVisibility();
+      }
+    });
   }
 
   updateEditorVisibility() {
@@ -52,11 +58,9 @@ class NodeSystem {
     }
   }
 
-  onEdit() {
-    isExpanded = true;
+  toggleEditor() {
+    isExpanded = !isExpanded;
     this.updateEditorVisibility();
-    const fragmentCode = editor.getValue();
-    this.updateShader(fragmentCode);
   }
 
   getDefaultShaderCode() {
@@ -72,50 +76,6 @@ void main() {
 }`;
   }
 
-  updateShader(fragmentCode) {
-    const webglNode = Array.from(this.nodes.values()).find(node => node.type === 'webgl');
-    if (!webglNode || !webglNode.data || !webglNode.data.gl) return;
-
-    const errors = this.checkShaderErrors(webglNode.data.gl, fragmentCode);
-    if (errors.length > 0) {
-      console.log("Shader errors:", errors);
-      return;
-    }
-
-    console.log("Shader updated successfully");
-    webglNode.code = fragmentCode;
-    _fragmentShader = fragmentCode;
-    isDirty = true;
-    this.updateShaderProgram(webglNode);
-  }
-
-  checkShaderErrors(gl, code) {
-    const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, code);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const infoLog = gl.getShaderInfoLog(shader);
-      return infoLog.split('\n').filter(Boolean);
-    }
-
-    return [];
-  }
-
-  setupEventListeners() {
-    document.addEventListener('mousemove', (e) => {
-      if (this.draggedNode) {
-        const x = e.clientX - this.dragOffset.x;
-        const y = e.clientY - this.dragOffset.y;
-        this.updateNodePosition(this.draggedNode.id, x, y);
-      }
-    });
-
-    document.addEventListener('mouseup', () => {
-      this.draggedNode = null;
-    });
-  }
-
   createNode(type, x, y) {
     const id = `node-${Date.now()}`;
     const node = document.createElement('div');
@@ -127,6 +87,7 @@ void main() {
     node.innerHTML = `
       <div class="node-header">
         <span>${type}</span>
+        ${type === 'webgl' ? '<div class="header-buttons"><button class="expand-button">Edit</button></div>' : ''}
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
@@ -154,23 +115,25 @@ void main() {
       }
     });
 
+    // Add edit button handler
+    if (type === 'webgl') {
+      node.querySelector('.expand-button').addEventListener('click', () => {
+        this.toggleEditor();
+      });
+    }
+
     this.container.appendChild(node);
     this.nodes.set(id, {
       type,
       element: node,
       data: null,
       code: shaderCode,
-      lastWorkingCode: shaderCode,
-      editor: null,
-      isDirty: false
+      lastWorkingCode: shaderCode
     });
 
-    // Initialize node-specific functionality
     this.initializeNode(id, type);
-
     return id;
   }
-
 
   initializeNode(id, type) {
     const node = this.nodes.get(id);
@@ -449,7 +412,12 @@ void main() {
 
   updateConnections() {
     const svg = document.getElementById('connections');
-    svg.innerHTML = '';
+    if (!svg) return;
+
+    // Clear existing connections
+    while (svg.firstChild) {
+      svg.removeChild(svg.firstChild);
+    }
 
     this.connections.forEach(({ from, to }) => {
       const fromNode = document.getElementById(from);
@@ -474,7 +442,50 @@ void main() {
       svg.appendChild(path);
     });
   }
-  updateShaderProgram(node) {
+  updateShader(fragmentCode) {
+    const webglNode = Array.from(this.nodes.values()).find(node => node.type === 'webgl');
+    if (!webglNode || !webglNode.data || !webglNode.data.gl) return;
+
+    const errors = this.checkShaderErrors(webglNode.data.gl, fragmentCode);
+    if (errors.length > 0) {
+      console.log("Shader errors:", errors);
+      return;
+    }
+
+    console.log("Shader updated successfully");
+    webglNode.code = fragmentCode;
+    _fragmentShader = fragmentCode;
+    isDirty = true;
+    this.updateShaderProgram(webglNode);
+  }
+
+  checkShaderErrors(gl, code) {
+    const shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, code);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const infoLog = gl.getShaderInfoLog(shader);
+      return infoLog.split('\n').filter(Boolean);
+    }
+
+    return [];
+  }
+
+  setupEventListeners() {
+    document.addEventListener('mousemove', (e) => {
+      if (this.draggedNode) {
+        const x = e.clientX - this.dragOffset.x;
+        const y = e.clientY - this.dragOffset.y;
+        this.updateNodePosition(this.draggedNode.id, x, y);
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      this.draggedNode = null;
+    });
+  }
+    updateShaderProgram(node) {
     const { gl } = node.data;
 
     // Create vertex shader
