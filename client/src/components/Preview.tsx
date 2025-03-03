@@ -3,6 +3,24 @@ import { renderer } from "@/lib/webgpu";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 
+// Basic test shader that draws a colored triangle
+const testShader = `
+  @vertex
+  fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> @builtin(position) vec4<f32> {
+    var pos = array<vec2<f32>, 3>(
+      vec2<f32>( 0.0,  0.5),
+      vec2<f32>(-0.5, -0.5),
+      vec2<f32>( 0.5, -0.5)
+    );
+    return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+  }
+
+  @fragment
+  fn fs_main() -> @location(0) vec4<f32> {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  }
+`;
+
 export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +39,9 @@ export function Preview() {
     renderer.init(canvas).then((success) => {
       if (!success && renderer.error) {
         setError(renderer.error);
+      } else {
+        // If initialization succeeded, start rendering
+        renderer.render(testShader);
       }
     }).catch((e) => {
       setError(`Failed to initialize WebGPU: ${e.message}`);

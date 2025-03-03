@@ -114,6 +114,56 @@ export class WebGPURenderer {
       return { success: false, error };
     }
   }
+
+  // Add rendering functionality
+  async render(shader: string) {
+    if (!this.device || !this.context) return;
+
+    try {
+      const shaderModule = this.device.createShaderModule({
+        code: shader
+      });
+
+      const pipeline = this.device.createRenderPipeline({
+        layout: 'auto',
+        vertex: {
+          module: shaderModule,
+          entryPoint: 'vs_main',
+          buffers: []
+        },
+        fragment: {
+          module: shaderModule,
+          entryPoint: 'fs_main',
+          targets: [{
+            format: navigator.gpu.getPreferredCanvasFormat()
+          }]
+        },
+        primitive: {
+          topology: 'triangle-list'
+        }
+      });
+
+      const commandEncoder = this.device.createCommandEncoder();
+      const textureView = this.context.getCurrentTexture().createView();
+
+      const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [{
+          view: textureView,
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          loadOp: 'clear',
+          storeOp: 'store'
+        }]
+      });
+
+      renderPass.setPipeline(pipeline);
+      renderPass.draw(3, 1, 0, 0);
+      renderPass.end();
+
+      this.device.queue.submit([commandEncoder.finish()]);
+    } catch (e) {
+      console.error('Render error:', e);
+    }
+  }
 }
 
 export const renderer = new WebGPURenderer();
