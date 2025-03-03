@@ -1,10 +1,8 @@
 // Import CodeMirror packages at the top
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { javascript } from '@codemirror/lang-javascript';
 import { basicSetup } from '@codemirror/basic-setup';
-//import { indentWithTab } from '@codemirror/commands';
-//import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { javascript } from '@codemirror/lang-javascript';
 
 // Node management and rendering system
 class NodeSystem {
@@ -46,7 +44,10 @@ class NodeSystem {
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
-        ${type === 'webgl' ? '<canvas></canvas><div class="code-editor"></div>' : ''}
+        ${type === 'webgl' ? `
+          <canvas></canvas>
+          <div class="code-editor"></div>
+        ` : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
       </div>
       <div class="node-ports">
@@ -114,6 +115,7 @@ void main() {
 
     const isExpanded = node.element.classList.toggle('expanded');
     if (isExpanded && !node.editor) {
+      console.log('Expanding node and initializing editor...'); 
       this.initializeCodeEditor(node);
     }
   }
@@ -134,24 +136,32 @@ void main() {
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    const state = EditorState.create({
-      doc: node.code,
-      extensions: [
-        basicSetup,
-        javascript(),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            const newCode = update.state.doc.toString();
-            this.tryCompileShader(node, newCode);
-          }
-        })
-      ]
-    });
+    console.log('Initializing code editor...'); 
 
-    node.editor = new EditorView({
-      state,
-      parent: editorContainer
-    });
+    try {
+      const startState = EditorState.create({
+        doc: node.code || this.getDefaultShaderCode(),
+        extensions: [
+          basicSetup,
+          javascript(),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              node.code = update.state.doc.toString();
+              this.tryCompileShader(node);
+            }
+          })
+        ]
+      });
+
+      node.editor = new EditorView({
+        state: startState,
+        parent: editorContainer
+      });
+
+      console.log('Code editor initialized successfully'); 
+    } catch (error) {
+      console.error('Error initializing code editor:', error);
+    }
   }
 
   tryCompileShader(node, newCode) {
@@ -160,13 +170,12 @@ void main() {
 
     // Try compiling the new shader
     const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, newCode);
+    gl.shaderSource(shader, node.code);
     gl.compileShader(shader);
 
     // Check if compilation was successful
     if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      node.code = newCode;
-      node.lastWorkingCode = newCode;
+      node.lastWorkingCode = node.code;
       node.isDirty = true;
       this.updateShaderProgram(node);
     } else {
@@ -248,10 +257,10 @@ void main() {
 
       video.onloadedmetadata = () => {
         console.log('Webcam stream loaded');
-        content.innerHTML = ''; // Clear loading
+        content.innerHTML = ''; 
         content.appendChild(video);
         node.data = video;
-        video.play(); // Ensure video starts playing
+        video.play(); 
         this.processNode(node);
       };
 
@@ -308,7 +317,7 @@ void main() {
       }
 
       const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fragmentShader, node.lastWorkingCode); // Use the last working code
+      gl.shaderSource(fragmentShader, node.lastWorkingCode); 
       gl.compileShader(fragmentShader);
 
       if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -366,7 +375,7 @@ void main() {
 
   initializeCheckboxGrid(node) {
     const grid = node.element.querySelector('.checkbox-grid');
-    const size = 32; // 32x32 grid
+    const size = 32; 
     for (let i = 0; i < size * size; i++) {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
