@@ -2,20 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Node-based Creative Coding</title>
+
+    <!-- CodeMirror CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
     <link rel="stylesheet" href="/src/styles/nodes.css" />
     <link rel="stylesheet" href="/src/styles/lint.css" />
 
+    <!-- CodeMirror JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/javascript-lint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jshint/2.13.5/jshint.min.js"></script>
   </head>
   <body>
     <div id="node-container">

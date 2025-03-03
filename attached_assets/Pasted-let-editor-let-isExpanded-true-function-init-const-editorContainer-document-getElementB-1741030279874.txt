@@ -1,0 +1,156 @@
+let editor;
+let isExpanded = true;
+
+function init() {
+  const editorContainer = document.getElementById("editor");
+  editor = CodeMirror(editorContainer, {
+    value: defaultP5Sketch(),  // Initial code
+    lineNumbers: true,
+    mode: "javascript",
+    theme: "monokai",
+    gutters: ["CodeMirror-lint-markers"],
+    lint: {
+      esversion: '11',
+      globals: ['setup', 'draw', 'p5'], // Add any global functions/variables here
+      lintOnChange: true
+    },
+    lineWrapping: true,
+    autoCloseBrackets: true,
+    matchBrackets: true,
+    indentUnit: 2,
+    tabSize: 2,
+    indentWithTabs: false,
+    styleActiveLine: true
+  });
+
+  // Add compile button
+  addCompileButton();
+  setupEscapeHandler();
+  
+  // Show editor initially
+  const editorElement = document.querySelector('.CodeMirror');
+  if (editorElement) {
+    editorElement.style.display = 'block';
+  }
+
+  // Initialize with default code
+  updateSketch(defaultP5Sketch());
+}
+
+function updateSketch(code) {
+  // Remove existing sketch if it exists
+  if (window.myp5) {
+    window.myp5.remove();
+    window.setup = undefined;
+    window.draw = undefined;
+  }
+
+  try {
+    // Create new sketch
+    const sketchFunction = new Function(`
+      ${code}
+      window.setup = setup;
+      window.draw = draw;
+    `);
+    
+    sketchFunction();
+    window.myp5 = new p5();
+    
+    // Clear any existing error markers
+    editor.clearGutter("CodeMirror-lint-markers");
+    
+  } catch (error) {
+    console.error("Error updating sketch:", error);
+    
+    // Parse error line number from stack trace
+    const lineMatch = error.stack.match(/\<anonymous\>:(\d+)/);
+    const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) - 2 : 0;
+    
+    // Create error marker
+    const marker = document.createElement("div");
+    marker.className = "CodeMirror-lint-marker-error";
+    marker.title = error.message;
+    
+    // Add error marker to gutter
+    editor.setGutterMarker(lineNumber, "CodeMirror-lint-markers", marker);
+    
+    // Add error styling to the line
+    editor.addLineClass(lineNumber, "background", "CodeMirror-lint-line-error");
+    
+    // Mark text as error
+    editor.markText(
+      {line: lineNumber, ch: 0},
+      {line: lineNumber, ch: editor.getLine(lineNumber).length},
+      {className: "CodeMirror-lint-mark-error", title: error.message}
+    );
+  }
+}
+
+function addCompileButton() {
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+  `;
+
+  const compileButton = document.createElement("button");
+  compileButton.innerHTML = "Run Code";
+  compileButton.style.cssText = `
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+    background: #666;
+    color: white;
+    cursor: pointer;
+  `;
+  compileButton.onclick = function() {
+    const code = editor.getValue();
+    updateSketch(code);
+  };
+
+  buttonContainer.appendChild(compileButton);
+  document.body.appendChild(buttonContainer);
+}
+
+function setupEscapeHandler() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      isExpanded = !isExpanded;
+      const editorElement = document.querySelector('.CodeMirror');
+      if (editorElement) {
+        editorElement.style.display = isExpanded ? 'block' : 'none';
+      }
+    }
+  });
+}
+
+// Add CSS for editor styling
+const styles = `
+.CodeMirror {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.CodeMirror-lint-mark-error {
+  background-color: rgba(255, 0, 0, 0.2);
+  border-bottom: 1px wavy red;
+}
+
+.CodeMirror-lint-line-error {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+`;
+
+const styleSheet = document.createElement("style");
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
+
+// Initialize when document is ready
+window.onload = init;

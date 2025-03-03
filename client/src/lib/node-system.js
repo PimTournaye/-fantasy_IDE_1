@@ -3,6 +3,7 @@ let editor;
 let isExpanded = true;
 let isDirty = false;
 let _fragmentShader;
+let activeEditor = null;
 
 class NodeSystem {
   constructor() {
@@ -12,10 +13,10 @@ class NodeSystem {
     this.draggedNode = null;
     this.dragOffset = { x: 0, y: 0 };
     this.setupEventListeners();
-    this.initializeEditor();
+    this.initializeShaderEditor();
   }
 
-  initializeEditor() {
+  initializeShaderEditor() {
     const editorContainer = document.getElementById("editor");
     if (!editorContainer) {
       console.error("Editor container not found");
@@ -35,8 +36,12 @@ class NodeSystem {
     });
 
     editor.on('change', () => {
-      const fragmentCode = editor.getValue();
-      this.updateShader(fragmentCode);
+      const code = editor.getValue();
+      if (activeEditor === 'shader') {
+        this.updateShader(code);
+      } else if (activeEditor) {
+        this.updateNodeCode(activeEditor, code);
+      }
     });
 
     // Initial visibility
@@ -51,6 +56,119 @@ class NodeSystem {
     });
   }
 
+  getDefaultNodeCode(type) {
+    switch (type) {
+      case 'webcam':
+        return `// Webcam processing code
+function processWebcamFrame(video) {
+  // Add your webcam processing logic here
+  // This function is called for each video frame
+  console.log('Processing webcam frame:', video);
+}`;
+      case 'checkbox':
+        return `// Checkbox grid processing code
+function processCheckboxGrid(grid) {
+  // Add your checkbox grid processing logic here
+  // This function is called when checkboxes are updated
+  const checkboxes = grid.querySelectorAll('input');
+  checkboxes.forEach((checkbox, index) => {
+    // Your custom logic here
+    console.log('Checkbox', index, 'state:', checkbox.checked);
+  });
+}`;
+      default:
+        return '';
+    }
+  }
+
+  updateNodeCode(nodeId, code) {
+    const node = this.nodes.get(nodeId);
+    if (!node) return;
+
+    try {
+      // Create a new Function to test if code is valid
+      new Function(code);
+      node.code = code;
+      console.log(`Updated ${node.type} code successfully`);
+    } catch (error) {
+      console.error(`Error in ${node.type} code:`, error);
+    }
+  }
+
+  createNode(type, x, y) {
+    const id = `node-${Date.now()}`;
+    const node = document.createElement('div');
+    node.className = 'node';
+    node.id = id;
+    node.setAttribute('data-type', type);
+
+    const defaultCode = type === 'webgl' ? this.getDefaultShaderCode() : this.getDefaultNodeCode(type);
+
+    node.innerHTML = `
+      <div class="node-header">
+        <span>${type}</span>
+        <div class="header-buttons">
+          <button class="expand-button">Edit</button>
+        </div>
+      </div>
+      <div class="node-content">
+        ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
+        ${type === 'webgl' ? '<canvas></canvas>' : ''}
+        ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
+      </div>
+      <div class="node-ports">
+        <div class="input-port"></div>
+        <div class="output-port"></div>
+      </div>
+    `;
+
+    node.style.left = `${x}px`;
+    node.style.top = `${y}px`;
+
+    // Add drag handling
+    node.querySelector('.node-header').addEventListener('mousedown', (e) => {
+      if (e.target.matches('.node-header, .node-header span')) {
+        this.draggedNode = { id, element: node };
+        const rect = node.getBoundingClientRect();
+        this.dragOffset = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+        e.preventDefault();
+      }
+    });
+
+    // Add edit button handler
+    node.querySelector('.expand-button').addEventListener('click', () => {
+      this.toggleEditor(id, type);
+    });
+
+    this.container.appendChild(node);
+    this.nodes.set(id, {
+      type,
+      element: node,
+      data: null,
+      code: defaultCode,
+      lastWorkingCode: defaultCode
+    });
+
+    this.initializeNode(id, type);
+    return id;
+  }
+
+  toggleEditor(nodeId, type) {
+    isExpanded = !isExpanded;
+    activeEditor = isExpanded ? (type === 'webgl' ? 'shader' : nodeId) : null;
+
+    if (isExpanded) {
+      const node = this.nodes.get(nodeId);
+      editor.setValue(node.code);
+      editor.setOption('mode', type === 'webgl' ? 'x-shader/x-vertex' : 'javascript');
+    }
+
+    this.updateEditorVisibility();
+  }
+
   updateEditorVisibility() {
     const editorElement = document.querySelector('.CodeMirror');
     const editorContainer = document.getElementById('editor');
@@ -62,11 +180,6 @@ class NodeSystem {
     if (editorContainer) {
       editorContainer.classList.toggle('visible', isExpanded);
     }
-  }
-
-  toggleEditor() {
-    isExpanded = !isExpanded;
-    this.updateEditorVisibility();
   }
 
   getDefaultShaderCode() {
@@ -94,7 +207,9 @@ void main() {
     node.innerHTML = `
       <div class="node-header">
         <span>${type}</span>
-        ${type === 'webgl' ? '<div class="header-buttons"><button class="expand-button">Edit</button></div>' : ''}
+        <div class="header-buttons">
+          <button class="expand-button">Edit</button>
+        </div>
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
@@ -123,11 +238,9 @@ void main() {
     });
 
     // Add edit button handler
-    if (type === 'webgl') {
-      node.querySelector('.expand-button').addEventListener('click', () => {
-        this.toggleEditor();
-      });
-    }
+    node.querySelector('.expand-button').addEventListener('click', () => {
+      this.toggleEditor(id, type);
+    });
 
     this.container.appendChild(node);
     this.nodes.set(id, {
