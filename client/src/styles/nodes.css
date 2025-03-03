@@ -6,6 +6,16 @@
   overflow: hidden;
 }
 
+#connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .node {
   position: absolute;
   width: 280px;
@@ -13,6 +23,7 @@
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   z-index: 2;
+  user-select: none;
 }
 
 .node.expanded {
@@ -62,11 +73,11 @@
   display: none;
   height: 400px;
   margin-top: 12px;
+  background: #1E1E1E;
 }
 
 .node.expanded #editor {
   display: block;
-  background: #1E1E1E;
 }
 
 /* CodeMirror Styles */

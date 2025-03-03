@@ -1,9 +1,8 @@
-// Import CodeMirror and styles
+// Import CodeMirror
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/monokai.css';
-import 'codemirror/mode/glsl/glsl'; // Added GLSL mode
-
+import 'codemirror/mode/glsl/glsl';
 
 let isExpanded = false;
 
@@ -120,7 +119,6 @@ void main() {
 
       console.log('Initializing editor...', { container: editorContainer, code: node.code });
 
-      // Initialize CodeMirror
       node.editor = CodeMirror(editorContainer, {
         value: node.code,
         lineNumbers: true,
@@ -131,7 +129,6 @@ void main() {
         lineWrapping: true
       });
 
-      // Set up change handler
       node.editor.on('change', () => {
         isExpanded = true;
         this.updateEditorVisibility(node);
@@ -230,6 +227,7 @@ void main() {
   }
 
 
+
   initializeNode(id, type) {
     const node = this.nodes.get(id);
     if (!node) return;
@@ -260,7 +258,6 @@ void main() {
       const video = node.element.querySelector('video');
       video.srcObject = stream;
 
-      // Show loading state
       const content = node.element.querySelector('.node-content');
       content.innerHTML = '<div class="loading">Initializing webcam...</div>';
 
@@ -309,7 +306,6 @@ void main() {
         throw new Error('WebGL not supported');
       }
 
-      // Create shader program for black and white posterization
       const vertexShader = gl.createShader(gl.VERTEX_SHADER);
       gl.shaderSource(vertexShader, `
         attribute vec2 position;
@@ -342,17 +338,15 @@ void main() {
         throw new Error(`Program linking failed: ${gl.getProgramInfoLog(program)}`);
       }
 
-      // Create buffers
       const buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        -1, -1,  // Bottom left
-         1, -1,  // Bottom right
-        -1,  1,  // Top left
-         1,  1   // Top right
+        -1, -1,  
+         1, -1,  
+        -1,  1,  
+         1,  1   
       ]), gl.STATIC_DRAW);
 
-      // Create and set up texture
       console.log('Setting up WebGL texture...');
       const texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -361,7 +355,6 @@ void main() {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-      // Clear content and add canvas
       content.innerHTML = '';
       content.appendChild(canvas);
 
@@ -406,7 +399,6 @@ void main() {
   processNode(sourceNode) {
     if (!sourceNode || !sourceNode.data) return;
 
-    // Find connected nodes
     const connections = Array.from(this.connections.values())
       .filter(conn => conn.from === sourceNode.element.id)
       .map(conn => this.nodes.get(conn.to))
@@ -420,7 +412,6 @@ void main() {
       }
     });
 
-    // Continue processing in animation loop
     requestAnimationFrame(() => this.processNode(sourceNode));
   }
 
@@ -431,20 +422,16 @@ void main() {
 
       gl.useProgram(program);
 
-      // Update texture with video frame
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
-      // Set texture uniform
       gl.uniform1i(textureLocation, 0);
 
-      // Draw
       gl.enableVertexAttribArray(positionLocation);
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-      // Process any connected nodes (like checkbox)
       const checkboxConnections = Array.from(this.connections.values())
         .filter(conn => conn.from === webglNode.element.id)
         .map(conn => this.nodes.get(conn.to))
@@ -466,17 +453,14 @@ void main() {
     const grid = checkboxNode.data;
     const checkboxes = grid.querySelectorAll('input');
 
-    // Create a temporary canvas to read pixels from WebGL
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // Copy WebGL canvas to temp canvas
     tempCtx.drawImage(canvas, 0, 0);
     const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-    // Calculate step sizes to sample the image
     const sampleWidth = Math.floor(canvas.width / 32);
     const sampleHeight = Math.floor(canvas.height / 32);
 
@@ -484,17 +468,13 @@ void main() {
       const gridX = i % 32;
       const gridY = Math.floor(i / 32);
 
-      // Sample from the center of each grid cell
       const x = gridX * sampleWidth + Math.floor(sampleWidth / 2);
       const y = gridY * sampleHeight + Math.floor(sampleHeight / 2);
 
-      // Get the pixel index in the image data array (RGBA format)
       const pixelIndex = (y * canvas.width + x) * 4;
 
-      // Use the red channel since our WebGL shader outputs black/white
       const brightness = imageData[pixelIndex];
 
-      // Update checkbox state - checked if dark, unchecked if bright
       checkbox.checked = brightness < 128;
     });
   }
@@ -534,14 +514,13 @@ void main() {
   }
 }
 
-// Initialize the system and create nodes
 const nodeSystem = new NodeSystem();
 
-// Create initial test nodes
 const webcamNode = nodeSystem.createNode('webcam', 50, 50);
 const webglNode = nodeSystem.createNode('webgl', 300, 50);
 const checkboxNode = nodeSystem.createNode('checkbox', 550, 50);
 
-// Connect nodes
 nodeSystem.connect(webcamNode, webglNode);
 nodeSystem.connect(webglNode, checkboxNode);
+
+export { nodeSystem };
