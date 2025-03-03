@@ -9,12 +9,21 @@ export class WebGPURenderer {
     this.canvas = canvas;
 
     try {
-      if (!navigator.gpu) {
-        this.error = "WebGPU is not supported in your browser. Please use Chrome Canary or Edge Canary with WebGPU flags enabled.";
-        return false;
-      }
+      // Browser detection
+      const userAgent = navigator.userAgent;
+      const browserInfo = {
+        isChrome: userAgent.includes('Chrome'),
+        isEdge: userAgent.includes('Edg'),
+        version: userAgent.match(/(?:Chrome|Edg)\/(\d+)/)?.at(1) || 'unknown'
+      };
 
       console.log("GPU API Version:", await navigator.gpu.getPreferredCanvasFormat());
+
+      if (!navigator.gpu) {
+        this.error = `WebGPU is not supported in your browser (${browserInfo.isChrome ? 'Chrome' : browserInfo.isEdge ? 'Edge' : 'Other'} ${browserInfo.version}). 
+          Please use Chrome Canary or Edge Canary with WebGPU flags enabled.`;
+        return false;
+      }
 
       const adapter = await navigator.gpu.requestAdapter({
         powerPreference: "high-performance"

@@ -7,8 +7,15 @@ export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [adapterInfo, setAdapterInfo] = useState<GPUAdapterInfo | null>(null);
+  const [browserInfo, setBrowserInfo] = useState<string>("");
 
   useEffect(() => {
+    const userAgent = navigator.userAgent;
+    const isChrome = userAgent.includes('Chrome');
+    const isEdge = userAgent.includes('Edg');
+    const version = userAgent.match(/(?:Chrome|Edg)\/(\d+)/)?.at(1) || 'unknown';
+    setBrowserInfo(`${isChrome ? 'Chrome' : isEdge ? 'Edge' : 'Other'} ${version}`);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -32,14 +39,22 @@ export function Preview() {
         <p className="text-sm text-gray-400 text-center max-w-md mb-4">
           {error}
         </p>
-        {adapterInfo && (
-          <div className="text-xs text-gray-500 mt-4">
-            <p>Vendor: {adapterInfo.vendor}</p>
-            <p>Architecture: {adapterInfo.architecture}</p>
-          </div>
-        )}
+        <div className="text-xs text-gray-500 mt-2">
+          <p>Current Browser: {browserInfo}</p>
+          {adapterInfo && (
+            <>
+              <p>Vendor: {adapterInfo.vendor}</p>
+              <p>Architecture: {adapterInfo.architecture}</p>
+            </>
+          )}
+        </div>
         <div className="text-xs text-gray-500 mt-4">
-          <p>Check browser console for detailed diagnostics.</p>
+          <p>To enable WebGPU:</p>
+          <ol className="list-decimal list-inside mt-2">
+            <li>Use Chrome Canary or Edge Canary</li>
+            <li>Enable WebGPU flags in browser settings</li>
+            <li>Make sure your GPU drivers are up to date</li>
+          </ol>
         </div>
       </Card>
     );
