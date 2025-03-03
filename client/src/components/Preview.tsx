@@ -3,8 +3,13 @@ import { renderer } from "@/lib/webgpu";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 
-// Basic test shader that draws a colored triangle
+// Animated test shader that draws a rotating colored triangle
 const testShader = `
+  struct Uniforms {
+    time: f32,
+  }
+  @binding(0) @group(0) var<uniform> uniforms: Uniforms;
+
   @vertex
   fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> @builtin(position) vec4<f32> {
     var pos = array<vec2<f32>, 3>(
@@ -12,12 +17,28 @@ const testShader = `
       vec2<f32>(-0.5, -0.5),
       vec2<f32>( 0.5, -0.5)
     );
-    return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+
+    // Rotate the triangle based on time
+    let angle = uniforms.time;
+    let s = sin(angle);
+    let c = cos(angle);
+    let rotated = vec2<f32>(
+      pos[VertexIndex].x * c - pos[VertexIndex].y * s,
+      pos[VertexIndex].x * s + pos[VertexIndex].y * c
+    );
+
+    return vec4<f32>(rotated, 0.0, 1.0);
   }
 
   @fragment
   fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    // Make color pulse with time
+    return vec4<f32>(
+      abs(sin(uniforms.time)),
+      abs(cos(uniforms.time)),
+      0.5,
+      1.0
+    );
   }
 `;
 
@@ -25,6 +46,7 @@ export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [browserInfo, setBrowserInfo] = useState<string>("");
+  const animationRef = useRef<number>();
 
   useEffect(() => {
     const userAgent = navigator.userAgent;
@@ -36,16 +58,32 @@ export function Preview() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Initialize WebGPU
     renderer.init(canvas).then((success) => {
       if (!success && renderer.error) {
         setError(renderer.error);
       } else {
-        // If initialization succeeded, start rendering
-        renderer.render(testShader);
+        // If initialization succeeded, start animation loop
+        let startTime = performance.now();
+
+        function animate() {
+          const time = (performance.now() - startTime) / 1000; // Convert to seconds
+          renderer.render(testShader, time);
+          animationRef.current = requestAnimationFrame(animate);
+        }
+
+        animate();
       }
     }).catch((e) => {
       setError(`Failed to initialize WebGPU: ${e.message}`);
     });
+
+    // Cleanup animation on unmount
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, []);
 
   if (error) {

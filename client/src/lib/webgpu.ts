@@ -4,6 +4,9 @@ export class WebGPURenderer {
   canvas: HTMLCanvasElement | null = null;
   error: string | null = null;
   fallbackContext: CanvasRenderingContext2D | null = null;
+  uniformBuffer: GPUBuffer | null = null;
+  bindGroup: GPUBindGroup | null = null;
+  pipeline: GPURenderPipeline | null = null;
 
   async init(canvas: HTMLCanvasElement): Promise<boolean> {
     this.canvas = canvas;
@@ -61,6 +64,12 @@ export class WebGPURenderer {
         alphaMode: "premultiplied",
       });
 
+      // Create uniform buffer for time
+      this.uniformBuffer = this.device.createBuffer({
+        size: 4, // size of a float32
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+
       console.log("WebGPU initialized successfully");
       return true;
     } catch (e) {
@@ -91,41 +100,36 @@ export class WebGPURenderer {
     return true;
   }
 
-  async compileShader(code: string): Promise<{ success: boolean; error?: string }> {
-    if (!this.device) {
-      return { 
-        success: false, 
-        error: "WebGPU device not initialized. Check console for detailed diagnostics." 
-      };
-    }
+  // Setup rendering pipeline and bind groups
+  private setupPipeline(shader: string): boolean {
+    if (!this.device || !this.context) return false;
 
     try {
       const shaderModule = this.device.createShaderModule({
-        code,
-        label: "User shader"  // Adding a label helps with debugging
+        code: shader,
+        label: "Main shader module"
       });
 
-      // We can't actually get compilation info synchronously in current WebGPU spec
-      // The compilation happens asynchronously when the shader is first used
-      return { success: true };
-    } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
-      console.error("Detailed shader compilation error:", e);
-      return { success: false, error };
-    }
-  }
-
-  // Add rendering functionality
-  async render(shader: string) {
-    if (!this.device || !this.context) return;
-
-    try {
-      const shaderModule = this.device.createShaderModule({
-        code: shader
+      const bindGroupLayout = this.device.createBindGroupLayout({
+        entries: [{
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          buffer: { type: "uniform" }
+        }]
       });
 
-      const pipeline = this.device.createRenderPipeline({
-        layout: 'auto',
+      this.bindGroup = this.device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [{
+          binding: 0,
+          resource: { buffer: this.uniformBuffer! }
+        }]
+      });
+
+      this.pipeline = this.device.createRenderPipeline({
+        layout: this.device.createPipelineLayout({
+          bindGroupLayouts: [bindGroupLayout]
+        }),
         vertex: {
           module: shaderModule,
           entryPoint: 'vs_main',
@@ -143,6 +147,34 @@ export class WebGPURenderer {
         }
       });
 
+      return true;
+    } catch (e) {
+      console.error('Pipeline setup error:', e);
+      return false;
+    }
+  }
+
+  // Render a frame
+  render(shader: string, time: number) {
+    if (!this.device || !this.context) return;
+
+    try {
+      // Set up pipeline if not already done
+      if (!this.pipeline || !this.bindGroup) {
+        if (!this.setupPipeline(shader)) {
+          console.error('Failed to setup pipeline');
+          return;
+        }
+      }
+
+      // Update time uniform
+      this.device.queue.writeBuffer(
+        this.uniformBuffer!,
+        0,
+        new Float32Array([time])
+      );
+
+      // Begin render pass
       const commandEncoder = this.device.createCommandEncoder();
       const textureView = this.context.getCurrentTexture().createView();
 
@@ -155,10 +187,12 @@ export class WebGPURenderer {
         }]
       });
 
-      renderPass.setPipeline(pipeline);
+      renderPass.setPipeline(this.pipeline!);
+      renderPass.setBindGroup(0, this.bindGroup);
       renderPass.draw(3, 1, 0, 0);
       renderPass.end();
 
+      // Submit the frame
       this.device.queue.submit([commandEncoder.finish()]);
     } catch (e) {
       console.error('Render error:', e);
