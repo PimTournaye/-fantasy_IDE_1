@@ -308,18 +308,31 @@ class NodeSystem {
   processCheckboxNode(webglNode, checkboxNode) {
     const { gl, canvas } = webglNode.data;
     const grid = checkboxNode.data;
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const checkboxes = grid.querySelectorAll('input');
+
+    // Create a temporary canvas to read pixels from WebGL
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+
+    // Copy WebGL canvas to temp canvas
+    tempCtx.drawImage(canvas, 0, 0);
+    const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
 
     const stepX = canvas.width / 32;
     const stepY = canvas.height / 32;
 
     checkboxes.forEach((checkbox, i) => {
-      const x = (i % 32) * stepX;
-      const y = Math.floor(i / 32) * stepY;
-      const pixel = imageData.data[((Math.floor(y) * canvas.width) + Math.floor(x)) * 4];
-      checkbox.checked = pixel < 128;
+      const x = Math.floor((i % 32) * stepX);
+      const y = Math.floor(Math.floor(i / 32) * stepY);
+
+      // Get pixel data at the center of each grid cell
+      const pixelIndex = (y * canvas.width + x) * 4;
+      const brightness = imageData.data[pixelIndex]; // Red channel is sufficient since image is B&W
+
+      // Update checkbox based on brightness threshold
+      checkbox.checked = brightness < 128;
     });
   }
 
