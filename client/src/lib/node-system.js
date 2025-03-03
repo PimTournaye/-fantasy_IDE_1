@@ -40,14 +40,10 @@ class NodeSystem {
     node.innerHTML = `
       <div class="node-header">
         <span>${type}</span>
-        ${type === 'webgl' ? '<div class="header-buttons"><button class="expand-button">Edit</button></div>' : ''}
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
-        ${type === 'webgl' ? `
-          <canvas></canvas>
-          <div class="code-editor"></div>
-        ` : ''}
+        ${type === 'webgl' ? '<canvas></canvas><div class="code-editor"></div>' : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
       </div>
       <div class="node-ports">
@@ -71,12 +67,6 @@ class NodeSystem {
       }
     });
 
-    if (type === 'webgl') {
-      node.querySelector('.expand-button').addEventListener('click', () => {
-        this.toggleNodeExpansion(id);
-      });
-    }
-
     this.container.appendChild(node);
     this.nodes.set(id, {
       type,
@@ -88,7 +78,16 @@ class NodeSystem {
       isDirty: false
     });
 
+    // Initialize node-specific functionality
     this.initializeNode(id, type);
+
+    // If it's a WebGL node, initialize the editor immediately
+    if (type === 'webgl') {
+      requestAnimationFrame(() => {
+        this.initializeCodeEditor(this.nodes.get(id));
+      });
+    }
+
     return id;
   }
 
@@ -96,6 +95,7 @@ class NodeSystem {
     return `precision mediump float;
 varying vec2 texCoord;
 uniform sampler2D texture;
+
 void main() {
   vec4 color = texture2D(texture, texCoord);
   float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
@@ -105,12 +105,13 @@ void main() {
   }
 
   initializeCodeEditor(node) {
+    if (!node || node.type !== 'webgl') return;
+
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    // Create a new editor instance
-    const editor = new EditorView({
-      state: EditorState.create({
+    try {
+      const state = EditorState.create({
         doc: node.code,
         extensions: [
           basicSetup,
@@ -122,53 +123,42 @@ void main() {
             }
           })
         ]
-      }),
-      parent: editorContainer
-    });
+      });
 
-    node.editor = editor;
+      node.editor = new EditorView({
+        state,
+        parent: editorContainer
+      });
+
+    } catch (error) {
+      console.error('Error initializing editor:', error);
+    }
   }
 
-  updateShader(node, fragmentCode) {
+  updateShader(node, newCode) {
     if (!node.data || !node.data.gl) return;
 
-    const errors = this.checkFragmentShader(node.data.gl, fragmentCode);
+    const errors = this.checkShaderErrors(node.data.gl, newCode);
     if (errors.length > 0) {
-      console.log("Shader compilation errors:", errors);
+      console.error('Shader errors:', errors);
       return;
     }
 
-    node.code = fragmentCode;
-    node.isDirty = true;
+    node.code = newCode;
+    node.lastWorkingCode = newCode;
     this.updateShaderProgram(node);
   }
 
-  checkFragmentShader(gl, shaderCode) {
+  checkShaderErrors(gl, code) {
     const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, shaderCode);
+    gl.shaderSource(shader, code);
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       const infoLog = gl.getShaderInfoLog(shader);
-      const errors = infoLog.split(/\r|\n/);
-      const ret = [];
-
-      for (let error of errors) {
-        if (!error) continue;
-        const splitResult = error.split(":");
-        if (splitResult.length >= 4) {
-          ret.push({
-            message: splitResult[3] + (splitResult[4] || ""),
-            character: splitResult[1],
-            line: splitResult[2]
-          });
-        }
-      }
-      gl.deleteShader(shader);
-      return ret;
+      return infoLog.split('\n').filter(Boolean);
     }
 
-    gl.deleteShader(shader);
     return [];
   }
 
