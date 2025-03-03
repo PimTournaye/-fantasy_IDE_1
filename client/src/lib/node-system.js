@@ -241,11 +241,33 @@ function process(input) {
 
   executeJavaScriptNode(node) {
     try {
-      const fn = new Function('return ' + node.code)();
-      node.lastWorkingCode = node.code;
+      // Execute the code and get the process function
+      const code = node.code;
+      // Wrap the code to ensure it returns a function
+      const wrappedCode = `
+        (function() {
+          ${code}
+          return typeof process === 'function' ? process : null;
+        })()
+      `;
+      const fn = new Function('return ' + wrappedCode)();
+
+      if (typeof fn !== 'function') {
+        throw new Error('Code must define a process(input) function');
+      }
+
+      node.lastWorkingCode = code;
       node.processFunction = fn;
+      console.log('JavaScript node updated successfully');
     } catch (error) {
       console.error('JavaScript execution error:', error);
+      // Keep the last working version if there's an error
+      node.code = node.lastWorkingCode;
+      if (node.editor) {
+        node.editor.dispatch({
+          changes: {from: 0, to: node.editor.state.doc.length, insert: node.lastWorkingCode}
+        });
+      }
     }
   }
 
@@ -439,7 +461,8 @@ function process(input) {
       } else if (targetNode.type === 'checkbox' && sourceNode.type === 'webgl') {
         this.processCheckboxNode(sourceNode, targetNode);
       } else if (targetNode.type === 'javascript' && sourceNode.type === 'webcam') {
-          if (sourceNode.data && sourceNode.data.videoWidth) { //Check if video has loaded
+        try {
+          if (sourceNode.data && sourceNode.data.videoWidth && targetNode.processFunction) {
             const canvas = document.createElement('canvas');
             canvas.width = sourceNode.data.videoWidth;
             canvas.height = sourceNode.data.videoHeight;
@@ -447,6 +470,9 @@ function process(input) {
             ctx.drawImage(sourceNode.data, 0, 0);
             targetNode.processFunction(canvas);
           }
+        } catch (error) {
+          console.error('Error processing JavaScript node:', error);
+        }
       }
     });
 
