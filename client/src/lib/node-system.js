@@ -87,6 +87,7 @@ void main() {
     const node = document.createElement('div');
     node.className = 'node';
     node.id = id;
+    node.setAttribute('data-type', type);
 
     const shaderCode = type === 'webgl' ? this.getDefaultShaderCode() : '';
 
