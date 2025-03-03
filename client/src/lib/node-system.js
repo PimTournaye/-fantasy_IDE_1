@@ -1,7 +1,7 @@
 // Import CodeMirror packages at the top
-import { basicSetup } from '@codemirror/basic-setup';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
+import { basicSetup } from '@codemirror/basic-setup';
 import { javascript } from '@codemirror/lang-javascript';
 import { indentWithTab } from '@codemirror/commands';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
@@ -29,23 +29,6 @@ class NodeSystem {
     document.addEventListener('mouseup', () => {
       this.draggedNode = null;
     });
-
-    // Add Command+R handler for JavaScript nodes
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'r' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        const activeNode = this.getActiveNode();
-        if (activeNode && activeNode.type === 'javascript') {
-          this.executeJavaScriptNode(activeNode);
-        }
-      }
-    });
-  }
-
-  getActiveNode() {
-    const expandedNodes = Array.from(this.nodes.values())
-      .filter(node => node.element.classList.contains('expanded'));
-    return expandedNodes[0];
   }
 
   createNode(type, x, y) {
@@ -59,7 +42,6 @@ class NodeSystem {
       <div class="node-header">
         <span>${type}</span>
         <div class="header-buttons">
-          ${type === 'javascript' ? '<button class="execute-button">Execute</button>' : ''}
           <button class="expand-button">Edit</button>
         </div>
       </div>
@@ -100,20 +82,17 @@ class NodeSystem {
       this.toggleNodeExpansion(id);
     });
 
-    // Add execute button handler for JavaScript nodes
-    if (type === 'javascript') {
-      node.querySelector('.execute-button').addEventListener('click', () => {
-        this.executeJavaScriptNode(this.nodes.get(id));
-      });
-    }
-
     this.container.appendChild(node);
+
+    // Initialize node with its implementation code
+    const nodeImpl = this.getNodeImplementation(type);
+
     this.nodes.set(id, {
       type,
       element: node,
       data: null,
-      code: this.getDefaultCode(type),
-      lastWorkingCode: this.getDefaultCode(type)
+      code: nodeImpl.code,
+      lastWorkingCode: nodeImpl.code
     });
 
     // Initialize node-specific functionality
@@ -122,10 +101,11 @@ class NodeSystem {
     return id;
   }
 
-  getDefaultCode(type) {
+  getNodeImplementation(type) {
     switch (type) {
       case 'webgl':
-        return `precision mediump float;
+        return {
+          code: `precision mediump float;
 varying vec2 texCoord;
 uniform sampler2D texture;
 void main() {
@@ -133,19 +113,44 @@ void main() {
   float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
   float posterized = step(0.5, gray);
   gl_FragColor = vec4(vec3(posterized), 1.0);
-}`;
-      case 'javascript':
-        return `// Process video data here
-function process(input) {
-  // Example: Access pixels through input
-  const canvas = input;
-  const ctx = canvas.getContext('2d');
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  // Process imageData here
-  return imageData;
-}`;
+}`
+        };
+      case 'webcam':
+        return {
+          code: `async function initializeWebcam(node) {
+  try {
+    console.log('Requesting webcam access...');
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { width: 320, height: 240 } 
+    });
+    const video = node.element.querySelector('video');
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      console.log('Webcam stream loaded');
+      node.data = video;
+      video.play();
+    };
+  } catch (error) {
+    console.error('Webcam error:', error);
+  }
+}`
+        };
+      case 'checkbox':
+        return {
+          code: `function initializeCheckboxGrid(node) {
+  const grid = node.element.querySelector('.checkbox-grid');
+  const size = 32;
+  for (let i = 0; i < size * size; i++) {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    grid.appendChild(checkbox);
+  }
+  grid.style.gridTemplateColumns = \`repeat(\${size}, 1fr)\`;
+  node.data = grid;
+}`
+        };
       default:
-        return '';
+        return { code: '' };
     }
   }
 
@@ -153,21 +158,18 @@ function process(input) {
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    // Base extensions that are common for all editors
-    const baseExtensions = [
-      basicSetup,
-      indentWithTab,
-      vscodeDark,
-    ];
-
-    // Add language-specific extensions
-    if (node.type === 'javascript') {
-      baseExtensions.push(javascript());
-    }
+    // Create a new editor instance
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: node.code,
+        extensions: [basicSetup, javascript(), vscodeDark]
+      }),
+      parent: editorContainer
+    });
 
     // Add update listener
-    baseExtensions.push(
-      EditorView.updateListener.of((update) => {
+    view.dispatch({
+      effects: EditorView.updateListener.of(update => {
         if (update.docChanged) {
           node.code = update.state.doc.toString();
           if (node.type === 'webgl') {
@@ -175,23 +177,10 @@ function process(input) {
           }
         }
       })
-    );
-
-    const startState = EditorState.create({
-      doc: node.code || this.getDefaultCode(node.type),
-      extensions: baseExtensions,
-    });
-
-    node.editor = new EditorView({
-      state: startState,
-      parent: editorContainer,
     });
 
     return () => {
-      if (node.editor) {
-        node.editor.destroy();
-        node.editor = null;
-      }
+      view.destroy();
     };
   }
 
@@ -266,37 +255,6 @@ function process(input) {
     node.data.textureLocation = gl.getUniformLocation(program, 'texture');
   }
 
-  executeJavaScriptNode(node) {
-    try {
-      // Execute the code and get the process function
-      const code = node.code;
-      // Wrap the code to ensure it returns a function
-      const wrappedCode = `
-        (function() {
-          ${code}
-          return typeof process === 'function' ? process : null;
-        })()
-      `;
-      const fn = new Function('return ' + wrappedCode)();
-
-      if (typeof fn !== 'function') {
-        throw new Error('Code must define a process(input) function');
-      }
-
-      node.lastWorkingCode = code;
-      node.processFunction = fn;
-      console.log('JavaScript node updated successfully');
-    } catch (error) {
-      console.error('JavaScript execution error:', error);
-      // Keep the last working version if there's an error
-      node.code = node.lastWorkingCode;
-      if (node.editor) {
-        node.editor.dispatch({
-          changes: {from: 0, to: node.editor.state.doc.length, insert: node.lastWorkingCode}
-        });
-      }
-    }
-  }
 
   initializeNode(id, type) {
     const node = this.nodes.get(id);
@@ -312,8 +270,6 @@ function process(input) {
       case 'checkbox':
         this.initializeCheckboxGrid(node);
         break;
-      case 'javascript':
-        break; //No specific initialization needed for JavaScript nodes.
     }
   }
 
@@ -487,19 +443,6 @@ function process(input) {
         this.processWebGLNode(sourceNode, targetNode);
       } else if (targetNode.type === 'checkbox' && sourceNode.type === 'webgl') {
         this.processCheckboxNode(sourceNode, targetNode);
-      } else if (targetNode.type === 'javascript' && sourceNode.type === 'webcam') {
-        try {
-          if (sourceNode.data && sourceNode.data.videoWidth && targetNode.processFunction) {
-            const canvas = document.createElement('canvas');
-            canvas.width = sourceNode.data.videoWidth;
-            canvas.height = sourceNode.data.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(sourceNode.data, 0, 0);
-            targetNode.processFunction(canvas);
-          }
-        } catch (error) {
-          console.error('Error processing JavaScript node:', error);
-        }
       }
     });
 
@@ -624,10 +567,7 @@ const nodeSystem = new NodeSystem();
 const webcamNode = nodeSystem.createNode('webcam', 50, 50);
 const webglNode = nodeSystem.createNode('webgl', 300, 50);
 const checkboxNode = nodeSystem.createNode('checkbox', 550, 50);
-const javascriptNode = nodeSystem.createNode('javascript', 700, 50);
-
 
 // Connect nodes
 nodeSystem.connect(webcamNode, webglNode);
 nodeSystem.connect(webglNode, checkboxNode);
-nodeSystem.connect(webcamNode, javascriptNode);
