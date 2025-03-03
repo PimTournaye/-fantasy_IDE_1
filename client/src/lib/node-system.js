@@ -1,10 +1,10 @@
 // Import CodeMirror packages at the top
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { basicSetup } from '@codemirror/basic-setup';
 import { javascript } from '@codemirror/lang-javascript';
-import { indentWithTab } from '@codemirror/commands';
-import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { basicSetup } from '@codemirror/basic-setup';
+//import { indentWithTab } from '@codemirror/commands';
+//import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 // Node management and rendering system
 class NodeSystem {
@@ -37,19 +37,17 @@ class NodeSystem {
     node.className = 'node';
     node.id = id;
 
-    // Create node structure with code editor
+    const shaderCode = type === 'webgl' ? this.getDefaultShaderCode() : '';
+
     node.innerHTML = `
       <div class="node-header">
         <span>${type}</span>
-        <div class="header-buttons">
-          <button class="expand-button">Edit</button>
-        </div>
+        ${type === 'webgl' ? '<div class="header-buttons"><button class="expand-button">Edit</button></div>' : ''}
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
-        ${type === 'webgl' ? '<canvas></canvas>' : ''}
+        ${type === 'webgl' ? '<canvas></canvas><div class="code-editor"></div>' : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
-        <div class="code-editor"></div>
       </div>
       <div class="node-ports">
         <div class="input-port"></div>
@@ -57,7 +55,6 @@ class NodeSystem {
       </div>
     `;
 
-    // Set position
     node.style.left = `${x}px`;
     node.style.top = `${y}px`;
 
@@ -77,35 +74,29 @@ class NodeSystem {
       }
     });
 
-    // Add expand/collapse functionality
-    node.querySelector('.expand-button').addEventListener('click', () => {
-      this.toggleNodeExpansion(id);
-    });
+    // Add expand/collapse functionality for WebGL node
+    if (type === 'webgl') {
+      node.querySelector('.expand-button').addEventListener('click', () => {
+        this.toggleNodeExpansion(id);
+      });
+    }
 
     this.container.appendChild(node);
-
-    // Initialize node with its implementation code
-    const nodeImpl = this.getNodeImplementation(type);
-
     this.nodes.set(id, {
       type,
       element: node,
       data: null,
-      code: nodeImpl.code,
-      lastWorkingCode: nodeImpl.code
+      code: shaderCode,
+      lastWorkingCode: shaderCode,
+      editor: null
     });
 
-    // Initialize node-specific functionality
     this.initializeNode(id, type);
-
     return id;
   }
 
-  getNodeImplementation(type) {
-    switch (type) {
-      case 'webgl':
-        return {
-          code: `precision mediump float;
+  getDefaultShaderCode() {
+    return `precision mediump float;
 varying vec2 texCoord;
 uniform sampler2D texture;
 void main() {
@@ -113,91 +104,47 @@ void main() {
   float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
   float posterized = step(0.5, gray);
   gl_FragColor = vec4(vec3(posterized), 1.0);
-}`
-        };
-      case 'webcam':
-        return {
-          code: `async function initializeWebcam(node) {
-  try {
-    console.log('Requesting webcam access...');
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { width: 320, height: 240 } 
-    });
-    const video = node.element.querySelector('video');
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      console.log('Webcam stream loaded');
-      node.data = video;
-      video.play();
-    };
-  } catch (error) {
-    console.error('Webcam error:', error);
-  }
-}`
-        };
-      case 'checkbox':
-        return {
-          code: `function initializeCheckboxGrid(node) {
-  const grid = node.element.querySelector('.checkbox-grid');
-  const size = 32;
-  for (let i = 0; i < size * size; i++) {
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    grid.appendChild(checkbox);
-  }
-  grid.style.gridTemplateColumns = \`repeat(\${size}, 1fr)\`;
-  node.data = grid;
-}`
-        };
-      default:
-        return { code: '' };
-    }
-  }
-
-  initializeCodeMirror(node) {
-    const editorContainer = node.element.querySelector('.code-editor');
-    if (!editorContainer) return;
-
-    // Create a new editor instance
-    const view = new EditorView({
-      state: EditorState.create({
-        doc: node.code,
-        extensions: [basicSetup, javascript(), vscodeDark]
-      }),
-      parent: editorContainer
-    });
-
-    // Add update listener
-    view.dispatch({
-      effects: EditorView.updateListener.of(update => {
-        if (update.docChanged) {
-          node.code = update.state.doc.toString();
-          if (node.type === 'webgl') {
-            this.tryCompileShader(node);
-          }
-        }
-      })
-    });
-
-    return () => {
-      view.destroy();
-    };
+}`;
   }
 
   toggleNodeExpansion(id) {
     const node = this.nodes.get(id);
-    if (!node) return;
+    if (!node || node.type !== 'webgl') return;
 
     const isExpanded = node.element.classList.toggle('expanded');
-
-    if (isExpanded) {
-      const cleanup = this.initializeCodeMirror(node);
-      node.cleanup = cleanup;
-    } else if (node.cleanup) {
-      node.cleanup();
-      delete node.cleanup;
+    if (isExpanded && !node.editor) {
+      this.initializeCodeEditor(node);
+    } else if (!isExpanded && node.editor) {
+      node.editor.destroy();
+      node.editor = null;
     }
   }
+
+  initializeCodeEditor(node) {
+    if (node.type !== 'webgl') return;
+
+    const editorContainer = node.element.querySelector('.code-editor');
+    if (!editorContainer) return;
+
+    const state = EditorState.create({
+      doc: node.code,
+      extensions: [basicSetup, javascript()]
+    });
+
+    node.editor = new EditorView({
+      state,
+      parent: editorContainer,
+      dispatch: tr => {
+        node.editor.update([tr]);
+        if (tr.docChanged) {
+          const newCode = tr.newDoc.toString();
+          node.code = newCode;
+          this.tryCompileShader(node);
+        }
+      }
+    });
+  }
+
 
   async tryCompileShader(node) {
     if (!node.data || !node.data.gl) return;
@@ -212,6 +159,8 @@ void main() {
         node.lastWorkingCode = node.code;
         // Update the shader program
         this.updateShaderProgram(node);
+      } else {
+        console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
       }
 
       gl.deleteShader(shader);
@@ -254,6 +203,7 @@ void main() {
     node.data.positionLocation = gl.getAttribLocation(program, 'position');
     node.data.textureLocation = gl.getUniformLocation(program, 'texture');
   }
+
 
 
   initializeNode(id, type) {
