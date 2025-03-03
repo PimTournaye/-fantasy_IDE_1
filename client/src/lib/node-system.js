@@ -53,8 +53,14 @@ class NodeSystem {
 
   updateEditorVisibility() {
     const editorElement = document.querySelector('.CodeMirror');
+    const editorContainer = document.getElementById('editor');
+
     if (editorElement) {
       editorElement.style.display = isExpanded ? 'block' : 'none';
+    }
+
+    if (editorContainer) {
+      editorContainer.classList.toggle('visible', isExpanded);
     }
   }
 
@@ -485,7 +491,7 @@ void main() {
       this.draggedNode = null;
     });
   }
-    updateShaderProgram(node) {
+  updateShaderProgram(node) {
     const { gl } = node.data;
 
     // Create vertex shader
