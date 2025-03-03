@@ -1,6 +1,6 @@
 // Import CodeMirror packages at the top
-import { basicSetup } from 'codemirror';
-import { EditorView, keymap } from '@codemirror/view';
+import { basicSetup } from '@codemirror/basic-setup';
+import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { indentWithTab } from '@codemirror/commands';
@@ -153,22 +153,33 @@ function process(input) {
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    const startState = EditorState.create({
-      doc: node.code,
-      extensions: [
-        basicSetup,
-        keymap.of([indentWithTab]),
-        vscodeDark,
-        node.type === 'javascript' ? javascript() : [],
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            node.code = update.state.doc.toString();
-            if (node.type === 'webgl') {
-              this.tryCompileShader(node);
-            }
+    // Base extensions that are common for all editors
+    const baseExtensions = [
+      basicSetup,
+      indentWithTab,
+      vscodeDark,
+    ];
+
+    // Add language-specific extensions
+    if (node.type === 'javascript') {
+      baseExtensions.push(javascript());
+    }
+
+    // Add update listener
+    baseExtensions.push(
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          node.code = update.state.doc.toString();
+          if (node.type === 'webgl') {
+            this.tryCompileShader(node);
           }
-        }),
-      ],
+        }
+      })
+    );
+
+    const startState = EditorState.create({
+      doc: node.code || this.getDefaultCode(node.type),
+      extensions: baseExtensions,
     });
 
     node.editor = new EditorView({
@@ -176,7 +187,12 @@ function process(input) {
       parent: editorContainer,
     });
 
-    return () => node.editor?.destroy();
+    return () => {
+      if (node.editor) {
+        node.editor.destroy();
+        node.editor = null;
+      }
+    };
   }
 
   toggleNodeExpansion(id) {
