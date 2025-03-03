@@ -2,7 +2,7 @@
   position: relative;
   width: 100%;
   height: 100vh;
-  background-color: #ffecf2; /* Light pink background */
+  background-color: #1e1e1e;
   overflow: hidden;
 }
 
@@ -24,7 +24,6 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   z-index: 2;
   user-select: none;
-  transition: width 0.3s, height 0.3s;
 }
 
 .node.expanded {
@@ -47,7 +46,7 @@
   gap: 8px;
 }
 
-.expand-button, .execute-button {
+.expand-button {
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -56,7 +55,7 @@
   font-size: 12px;
 }
 
-.expand-button:hover, .execute-button:hover {
+.expand-button:hover {
   background: #eee;
 }
 
@@ -68,17 +67,23 @@
   gap: 12px;
 }
 
+.node-content video,
+.node-content canvas {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
 .code-editor {
   display: none;
-  width: 100%;
-  height: 300px;
   background: #1E1E1E;
-  border-radius: 4px;
-  overflow: hidden;
 }
 
 .node.expanded .code-editor {
   display: block;
+  height: 300px;
+  margin-top: 12px;
 }
 
 .node.expanded .code-editor .cm-editor {
@@ -86,19 +91,21 @@
   font-family: monospace;
   font-size: 14px;
   background: #1E1E1E;
-  color: #fff;
+  color: #D4D4D4;
 }
 
 .node.expanded .code-editor .cm-scroller {
   height: 100%;
 }
 
-.node-content video,
-.node-content canvas {
-  width: 100%;
-  height: 240px;
-  object-fit: cover;
-  border-radius: 4px;
+.node.expanded .code-editor .cm-gutters {
+  background: #1E1E1E;
+  border-right: 1px solid #404040;
+  color: #858585;
+}
+
+.node.expanded .code-editor .cm-activeLine {
+  background: #282828;
 }
 
 .checkbox-grid {
@@ -140,33 +147,4 @@
 .input-port:hover,
 .output-port:hover {
   background: #333;
-}
-
-.node-content .error {
-  color: #e11d48;
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  background: #fef2f2;
-  border-radius: 0.5rem;
-  border: 1px solid #fecdd3;
-}
-
-.node-content .loading {
-  color: #666;
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  background: #f5f5f5;
-  border-radius: 0.5rem;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }

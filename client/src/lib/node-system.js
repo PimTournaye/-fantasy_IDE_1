@@ -59,7 +59,6 @@ class NodeSystem {
     node.style.left = `${x}px`;
     node.style.top = `${y}px`;
 
-    // Add drag functionality
     node.querySelector('.node-header').addEventListener('mousedown', (e) => {
       if (e.target.matches('.node-header, .node-header span')) {
         this.draggedNode = {
@@ -75,7 +74,6 @@ class NodeSystem {
       }
     });
 
-    // Add expand/collapse functionality for WebGL node
     if (type === 'webgl') {
       node.querySelector('.expand-button').addEventListener('click', () => {
         this.toggleNodeExpansion(id);
@@ -114,20 +112,10 @@ void main() {
     if (!node || node.type !== 'webgl') return;
 
     const isExpanded = node.element.classList.toggle('expanded');
+
     if (isExpanded && !node.editor) {
-      console.log('Expanding node and initializing editor...'); 
       this.initializeCodeEditor(node);
     }
-  }
-
-  checkShaderErrors(gl, shader) {
-    const compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (!compiled) {
-      const errors = gl.getShaderInfoLog(shader);
-      console.error('Shader compilation errors:', errors);
-      return errors;
-    }
-    return null;
   }
 
   initializeCodeEditor(node) {
@@ -136,46 +124,42 @@ void main() {
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    console.log('Initializing code editor...'); 
-
     try {
-      const startState = EditorState.create({
-        doc: node.code || this.getDefaultShaderCode(),
+      const state = EditorState.create({
+        doc: node.code,
         extensions: [
           basicSetup,
           javascript(),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
-              node.code = update.state.doc.toString();
-              this.tryCompileShader(node);
+              const newCode = update.state.doc.toString();
+              this.checkShaderAndUpdate(node, newCode);
             }
           })
         ]
       });
 
       node.editor = new EditorView({
-        state: startState,
+        state: state,
         parent: editorContainer
       });
 
-      console.log('Code editor initialized successfully'); 
     } catch (error) {
-      console.error('Error initializing code editor:', error);
+      console.error('Error initializing editor:', error);
     }
   }
 
-  tryCompileShader(node, newCode) {
+  checkShaderAndUpdate(node, newCode) {
     if (!node.data || !node.data.gl) return;
-    const { gl } = node.data;
 
-    // Try compiling the new shader
+    const { gl } = node.data;
     const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, node.code);
+    gl.shaderSource(shader, newCode);
     gl.compileShader(shader);
 
-    // Check if compilation was successful
     if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      node.lastWorkingCode = node.code;
+      node.code = newCode;
+      node.lastWorkingCode = newCode;
       node.isDirty = true;
       this.updateShaderProgram(node);
     } else {
@@ -184,6 +168,7 @@ void main() {
 
     gl.deleteShader(shader);
   }
+
 
   updateShaderProgram(node) {
     const { gl } = node.data;
@@ -219,6 +204,7 @@ void main() {
     node.data.positionLocation = gl.getAttribLocation(program, 'position');
     node.data.textureLocation = gl.getUniformLocation(program, 'texture');
   }
+
 
 
   initializeNode(id, type) {
