@@ -88,7 +88,8 @@ class NodeSystem {
       data: null,
       code: shaderCode,
       lastWorkingCode: shaderCode,
-      editor: null
+      editor: null,
+      isDirty: false
     });
 
     this.initializeNode(id, type);
@@ -114,10 +115,17 @@ void main() {
     const isExpanded = node.element.classList.toggle('expanded');
     if (isExpanded && !node.editor) {
       this.initializeCodeEditor(node);
-    } else if (!isExpanded && node.editor) {
-      node.editor.destroy();
-      node.editor = null;
     }
+  }
+
+  checkShaderErrors(gl, shader) {
+    const compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (!compiled) {
+      const errors = gl.getShaderInfoLog(shader);
+      console.error('Shader compilation errors:', errors);
+      return errors;
+    }
+    return null;
   }
 
   initializeCodeEditor(node) {
@@ -128,45 +136,44 @@ void main() {
 
     const state = EditorState.create({
       doc: node.code,
-      extensions: [basicSetup, javascript()]
+      extensions: [
+        basicSetup,
+        javascript(),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            const newCode = update.state.doc.toString();
+            this.tryCompileShader(node, newCode);
+          }
+        })
+      ]
     });
 
     node.editor = new EditorView({
       state,
-      parent: editorContainer,
-      dispatch: tr => {
-        node.editor.update([tr]);
-        if (tr.docChanged) {
-          const newCode = tr.newDoc.toString();
-          node.code = newCode;
-          this.tryCompileShader(node);
-        }
-      }
+      parent: editorContainer
     });
   }
 
-
-  async tryCompileShader(node) {
+  tryCompileShader(node, newCode) {
     if (!node.data || !node.data.gl) return;
-
     const { gl } = node.data;
-    try {
-      const shader = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(shader, node.code);
-      gl.compileShader(shader);
 
-      if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        node.lastWorkingCode = node.code;
-        // Update the shader program
-        this.updateShaderProgram(node);
-      } else {
-        console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
-      }
+    // Try compiling the new shader
+    const shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, newCode);
+    gl.compileShader(shader);
 
-      gl.deleteShader(shader);
-    } catch (error) {
-      console.error('Shader compilation error:', error);
+    // Check if compilation was successful
+    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      node.code = newCode;
+      node.lastWorkingCode = newCode;
+      node.isDirty = true;
+      this.updateShaderProgram(node);
+    } else {
+      console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
     }
+
+    gl.deleteShader(shader);
   }
 
   updateShaderProgram(node) {
@@ -203,7 +210,6 @@ void main() {
     node.data.positionLocation = gl.getAttribLocation(program, 'position');
     node.data.textureLocation = gl.getUniformLocation(program, 'texture');
   }
-
 
 
   initializeNode(id, type) {

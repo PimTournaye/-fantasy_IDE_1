@@ -1,0 +1,86 @@
+// Core state variables
+let gl;
+let shaderProgram;
+let isDirty = false;
+let _fragmentShader; // Stores current fragment shader code
+
+// Function to compile shaders
+function compileShader(type, code) {
+    let shader = gl.createShader(type);
+    gl.shaderSource(shader, code);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.log(`Error compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:`);
+          console.log(gl.getShaderInfoLog(shader));
+    }
+    return shader;
+}
+
+// Function to build shader program
+function buildShaderProgram() {
+    let program = gl.createProgram();
+    
+    // Compile vertex shader
+    let shader = compileShader(gl.VERTEX_SHADER, vertexShader());
+    gl.attachShader(program, shader);
+
+    // Compile fragment shader
+    shader = compileShader(gl.FRAGMENT_SHADER, fragmentShader());
+    gl.attachShader(program, shader);
+
+    gl.linkProgram(program)
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.log("Error linking shader program:");
+        console.log(gl.getProgramInfoLog(program));
+    }
+
+    return program;
+}
+
+// Function to check if fragment shader compiles and update if valid
+function checkFragmentShader(shaderCode, lint = false) {
+    if (!gl) return;
+    
+    let shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, shaderCode);
+    gl.compileShader(shader);
+    let infoLog = gl.getShaderInfoLog(shader);
+    let result = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    let ret = [];
+    
+    if (!result) {
+        console.log(infoLog);
+        var errors = infoLog.split(/\r|\n/);
+        for (let error of errors) {
+            var splitResult = error.split(":")
+            ret.push({
+                message: splitResult[3] + splitResult[4],
+                character: splitResult[1],
+                line: splitResult[2]
+            });
+        }
+    }
+    
+    if (result) {
+        console.log("Shader updated successfully");
+        _fragmentShader = shaderCode;
+        isDirty = true;
+    }
+
+    return ret;
+}
+
+// Animation loop that checks for shader updates
+function animateScene() {
+    // ... other animation code ...
+
+    window.requestAnimationFrame(function(currentTime) {
+        previousTime = previousTime + .005;
+        if (isDirty) {
+            shaderProgram = buildShaderProgram();
+            isDirty = false;
+        }
+        animateScene();
+    });
+}

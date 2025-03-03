@@ -83,6 +83,17 @@
 
 .node.expanded .code-editor {
   display: block;
+  height: 400px;
+}
+
+.node.expanded .code-editor .cm-editor {
+  height: 100%;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.node.expanded .code-editor .cm-scroller {
+  height: 100%;
 }
 
 .node-content video,
