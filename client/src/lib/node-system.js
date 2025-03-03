@@ -37,6 +37,7 @@ class NodeSystem {
 
     const shaderCode = type === 'webgl' ? this.getDefaultShaderCode() : '';
 
+    // Create node structure
     node.innerHTML = `
       <div class="node-header">
         <span>${type}</span>
@@ -61,10 +62,7 @@ class NodeSystem {
 
     node.querySelector('.node-header').addEventListener('mousedown', (e) => {
       if (e.target.matches('.node-header, .node-header span')) {
-        this.draggedNode = {
-          id,
-          element: node
-        };
+        this.draggedNode = { id, element: node };
         const rect = node.getBoundingClientRect();
         this.dragOffset = {
           x: e.clientX - rect.left,
@@ -113,43 +111,41 @@ void main() {
 
     const isExpanded = node.element.classList.toggle('expanded');
 
-    if (isExpanded && !node.editor) {
-      this.initializeCodeEditor(node);
+    if (isExpanded) {
+      if (!node.editor) {
+        setTimeout(() => this.initializeCodeEditor(node), 0);
+      }
+    } else if (node.editor) {
+      node.editor.destroy();
+      node.editor = null;
     }
   }
 
   initializeCodeEditor(node) {
-    if (node.type !== 'webgl') return;
-
     const editorContainer = node.element.querySelector('.code-editor');
     if (!editorContainer) return;
 
-    try {
-      const state = EditorState.create({
-        doc: node.code,
-        extensions: [
-          basicSetup,
-          javascript(),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              const newCode = update.state.doc.toString();
-              this.checkShaderAndUpdate(node, newCode);
-            }
-          })
-        ]
-      });
+    const startState = EditorState.create({
+      doc: node.code,
+      extensions: [
+        basicSetup,
+        javascript(),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            const newCode = update.state.doc.toString();
+            this.tryCompileShader(node, newCode);
+          }
+        })
+      ]
+    });
 
-      node.editor = new EditorView({
-        state: state,
-        parent: editorContainer
-      });
-
-    } catch (error) {
-      console.error('Error initializing editor:', error);
-    }
+    node.editor = new EditorView({
+      state: startState,
+      parent: editorContainer
+    });
   }
 
-  checkShaderAndUpdate(node, newCode) {
+  tryCompileShader(node, newCode) {
     if (!node.data || !node.data.gl) return;
 
     const { gl } = node.data;
@@ -160,7 +156,6 @@ void main() {
     if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       node.code = newCode;
       node.lastWorkingCode = newCode;
-      node.isDirty = true;
       this.updateShaderProgram(node);
     } else {
       console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
