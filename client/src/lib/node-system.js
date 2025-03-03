@@ -298,6 +298,16 @@ class NodeSystem {
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
+      // Process any connected nodes (like checkbox)
+      const checkboxConnections = Array.from(this.connections.values())
+        .filter(conn => conn.from === webglNode.element.id)
+        .map(conn => this.nodes.get(conn.to))
+        .filter(node => node && node.type === 'checkbox');
+
+      checkboxConnections.forEach(checkboxNode => {
+        this.processCheckboxNode(webglNode, checkboxNode);
+      });
+
     } catch (error) {
       console.error('WebGL processing error:', error);
       webglNode.element.querySelector('.node-content').innerHTML = 
