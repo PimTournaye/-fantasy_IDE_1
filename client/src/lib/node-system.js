@@ -21,6 +21,23 @@ class NodeSystem {
     document.addEventListener('mouseup', () => {
       this.draggedNode = null;
     });
+
+    // Add Command+R handler for JavaScript nodes
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        const activeNode = this.getActiveNode();
+        if (activeNode && activeNode.type === 'javascript') {
+          this.executeJavaScriptNode(activeNode);
+        }
+      }
+    });
+  }
+
+  getActiveNode() {
+    const expandedNodes = Array.from(this.nodes.values())
+      .filter(node => node.element.classList.contains('expanded'));
+    return expandedNodes[0];
   }
 
   createNode(type, x, y) {
@@ -29,13 +46,20 @@ class NodeSystem {
     node.className = 'node';
     node.id = id;
 
-    // Create node structure
+    // Create node structure with code editor
     node.innerHTML = `
-      <div class="node-header">${type}</div>
+      <div class="node-header">
+        <span>${type}</span>
+        <div class="header-buttons">
+          ${type === 'javascript' ? '<button class="execute-button">Execute</button>' : ''}
+          <button class="expand-button">Edit</button>
+        </div>
+      </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
         ${type === 'webgl' ? '<canvas></canvas>' : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
+        <div class="code-editor"></div>
       </div>
       <div class="node-ports">
         <div class="input-port"></div>
@@ -49,29 +73,180 @@ class NodeSystem {
 
     // Add drag functionality
     node.querySelector('.node-header').addEventListener('mousedown', (e) => {
-      this.draggedNode = {
-        id,
-        element: node
-      };
-      const rect = node.getBoundingClientRect();
-      this.dragOffset = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      };
-      e.preventDefault();
+      if (e.target.matches('.node-header, .node-header span')) {
+        this.draggedNode = {
+          id,
+          element: node
+        };
+        const rect = node.getBoundingClientRect();
+        this.dragOffset = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+        e.preventDefault();
+      }
     });
+
+    // Add expand/collapse functionality
+    node.querySelector('.expand-button').addEventListener('click', () => {
+      this.toggleNodeExpansion(id);
+    });
+
+    // Add execute button handler for JavaScript nodes
+    if (type === 'javascript') {
+      node.querySelector('.execute-button').addEventListener('click', () => {
+        this.executeJavaScriptNode(this.nodes.get(id));
+      });
+    }
 
     this.container.appendChild(node);
     this.nodes.set(id, {
       type,
       element: node,
-      data: null
+      data: null,
+      code: this.getDefaultCode(type),
+      lastWorkingCode: this.getDefaultCode(type)
     });
 
     // Initialize node-specific functionality
     this.initializeNode(id, type);
 
     return id;
+  }
+
+  getDefaultCode(type) {
+    switch (type) {
+      case 'webgl':
+        return `precision mediump float;
+varying vec2 texCoord;
+uniform sampler2D texture;
+void main() {
+  vec4 color = texture2D(texture, texCoord);
+  float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  float posterized = step(0.5, gray);
+  gl_FragColor = vec4(vec3(posterized), 1.0);
+}`;
+      case 'javascript':
+        return `// Process video data here
+function process(input) {
+  // Example: Access pixels through input
+  const canvas = input;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Process imageData here
+  return imageData;
+}`;
+      default:
+        return '';
+    }
+  }
+
+  async initializeCodeMirror(node) {
+    const editorContainer = node.element.querySelector('.code-editor');
+    const { basicSetup } = await import('@codemirror/basic-setup');
+    const { EditorView, keymap } = await import('@codemirror/view');
+    const { EditorState } = await import('@codemirror/state');
+    const { javascript } = await import('@codemirror/lang-javascript');
+    const { vscodeDark } = await import('@uiw/codemirror-theme-vscode');
+
+    const startState = EditorState.create({
+      doc: node.code,
+      extensions: [
+        basicSetup,
+        vscodeDark,
+        javascript(),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            node.code = update.state.doc.toString();
+            if (node.type === 'webgl') {
+              this.tryCompileShader(node);
+            }
+          }
+        })
+      ]
+    });
+
+    node.editor = new EditorView({
+      state: startState,
+      parent: editorContainer
+    });
+  }
+
+  toggleNodeExpansion(id) {
+    const node = this.nodes.get(id);
+    if (!node) return;
+
+    const isExpanded = node.element.classList.toggle('expanded');
+
+    if (isExpanded && !node.editor) {
+      this.initializeCodeMirror(node);
+    }
+  }
+
+  async tryCompileShader(node) {
+    if (!node.data || !node.data.gl) return;
+
+    const { gl } = node.data;
+    try {
+      const shader = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(shader, node.code);
+      gl.compileShader(shader);
+
+      if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        node.lastWorkingCode = node.code;
+        // Update the shader program
+        this.updateShaderProgram(node);
+      }
+
+      gl.deleteShader(shader);
+    } catch (error) {
+      console.error('Shader compilation error:', error);
+    }
+  }
+
+  updateShaderProgram(node) {
+    const { gl } = node.data;
+
+    // Create vertex shader
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, `
+      attribute vec2 position;
+      varying vec2 texCoord;
+      void main() {
+        texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `);
+    gl.compileShader(vertexShader);
+
+    // Create fragment shader
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, node.lastWorkingCode);
+    gl.compileShader(fragmentShader);
+
+    // Create and link program
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    // Update node's program
+    if (node.data.program) {
+      gl.deleteProgram(node.data.program);
+    }
+    node.data.program = program;
+    node.data.positionLocation = gl.getAttribLocation(program, 'position');
+    node.data.textureLocation = gl.getUniformLocation(program, 'texture');
+  }
+
+  executeJavaScriptNode(node) {
+    try {
+      const fn = new Function('return ' + node.code)();
+      node.lastWorkingCode = node.code;
+      node.processFunction = fn;
+    } catch (error) {
+      console.error('JavaScript execution error:', error);
+    }
   }
 
   initializeNode(id, type) {
@@ -88,6 +263,8 @@ class NodeSystem {
       case 'checkbox':
         this.initializeCheckboxGrid(node);
         break;
+      case 'javascript':
+        break; //No specific initialization needed for JavaScript nodes.
     }
   }
 
@@ -170,17 +347,7 @@ class NodeSystem {
       }
 
       const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fragmentShader, `
-        precision mediump float;
-        varying vec2 texCoord;
-        uniform sampler2D texture;
-        void main() {
-          vec4 color = texture2D(texture, texCoord);
-          float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-          float posterized = step(0.5, gray);
-          gl_FragColor = vec4(vec3(posterized), 1.0);
-        }
-      `);
+      gl.shaderSource(fragmentShader, node.lastWorkingCode); // Use the last working code
       gl.compileShader(fragmentShader);
 
       if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -271,6 +438,15 @@ class NodeSystem {
         this.processWebGLNode(sourceNode, targetNode);
       } else if (targetNode.type === 'checkbox' && sourceNode.type === 'webgl') {
         this.processCheckboxNode(sourceNode, targetNode);
+      } else if (targetNode.type === 'javascript' && sourceNode.type === 'webcam') {
+          if (sourceNode.data && sourceNode.data.videoWidth) { //Check if video has loaded
+            const canvas = document.createElement('canvas');
+            canvas.width = sourceNode.data.videoWidth;
+            canvas.height = sourceNode.data.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(sourceNode.data, 0, 0);
+            targetNode.processFunction(canvas);
+          }
       }
     });
 
@@ -395,7 +571,10 @@ const nodeSystem = new NodeSystem();
 const webcamNode = nodeSystem.createNode('webcam', 50, 50);
 const webglNode = nodeSystem.createNode('webgl', 300, 50);
 const checkboxNode = nodeSystem.createNode('checkbox', 550, 50);
+const javascriptNode = nodeSystem.createNode('javascript', 700, 50);
+
 
 // Connect nodes
 nodeSystem.connect(webcamNode, webglNode);
 nodeSystem.connect(webglNode, checkboxNode);
+nodeSystem.connect(webcamNode, javascriptNode);
