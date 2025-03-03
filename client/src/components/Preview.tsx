@@ -6,7 +6,6 @@ import { AlertCircle } from "lucide-react";
 export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [adapterInfo, setAdapterInfo] = useState<GPUAdapterInfo | null>(null);
   const [browserInfo, setBrowserInfo] = useState<string>("");
 
   useEffect(() => {
@@ -23,9 +22,6 @@ export function Preview() {
       if (!success && renderer.error) {
         setError(renderer.error);
       }
-      if (renderer.adapterInfo) {
-        setAdapterInfo(renderer.adapterInfo);
-      }
     }).catch((e) => {
       setError(`Failed to initialize WebGPU: ${e.message}`);
     });
@@ -41,18 +37,17 @@ export function Preview() {
         </p>
         <div className="text-xs text-gray-500 mt-2">
           <p>Current Browser: {browserInfo}</p>
-          {adapterInfo && (
-            <>
-              <p>Vendor: {adapterInfo.vendor}</p>
-              <p>Architecture: {adapterInfo.architecture}</p>
-            </>
-          )}
         </div>
         <div className="text-xs text-gray-500 mt-4">
           <p>To enable WebGPU:</p>
           <ol className="list-decimal list-inside mt-2">
             <li>Use Chrome Canary or Edge Canary</li>
-            <li>Enable WebGPU flags in browser settings</li>
+            <li>Enable flags in browser settings:
+              <ul className="list-disc list-inside ml-4 mt-1">
+                <li>chrome://flags/#enable-unsafe-webgpu</li>
+                <li>chrome://flags/#enable-webgpu-developer-features</li>
+              </ul>
+            </li>
             <li>Make sure your GPU drivers are up to date</li>
           </ol>
         </div>

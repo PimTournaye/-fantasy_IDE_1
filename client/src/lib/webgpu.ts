@@ -3,7 +3,7 @@ export class WebGPURenderer {
   context: GPUCanvasContext | null = null;
   canvas: HTMLCanvasElement | null = null;
   error: string | null = null;
-  adapterInfo: GPUAdapterInfo | null = null;
+  fallbackContext: CanvasRenderingContext2D | null = null;
 
   async init(canvas: HTMLCanvasElement): Promise<boolean> {
     this.canvas = canvas;
@@ -17,37 +17,29 @@ export class WebGPURenderer {
         version: userAgent.match(/(?:Chrome|Edg)\/(\d+)/)?.at(1) || 'unknown'
       };
 
-      console.log("GPU API Version:", await navigator.gpu.getPreferredCanvasFormat());
-
       if (!navigator.gpu) {
+        console.log("WebGPU API not available in current browser", browserInfo);
         this.error = `WebGPU is not supported in your browser (${browserInfo.isChrome ? 'Chrome' : browserInfo.isEdge ? 'Edge' : 'Other'} ${browserInfo.version}). 
           Please use Chrome Canary or Edge Canary with WebGPU flags enabled.`;
-        return false;
+        return this.initFallback();
       }
+
+      const format = navigator.gpu.getPreferredCanvasFormat();
+      console.log("Preferred WebGPU format:", format);
 
       const adapter = await navigator.gpu.requestAdapter({
         powerPreference: "high-performance"
       });
 
       if (!adapter) {
+        console.log("No WebGPU adapter found");
         this.error = "No suitable GPU adapter found. Please check if your GPU supports WebGPU and your drivers are up to date.";
-        return false;
+        return this.initFallback();
       }
 
-      // Get adapter info and capabilities
-      this.adapterInfo = await adapter.requestAdapterInfo();
-      console.log("GPU Adapter Info:", {
-        vendor: this.adapterInfo?.vendor,
-        architecture: this.adapterInfo?.architecture
-      });
-
-      // List available features
-      const features = Array.from(adapter.features.values());
-      console.log("Available GPU features:", features);
-
-      // List adapter limits
-      const limits = adapter.limits;
-      console.log("GPU Adapter Limits:", limits);
+      // Log adapter features and limits
+      console.log("Available GPU features:", Array.from(adapter.features.values()));
+      console.log("GPU Adapter Limits:", adapter.limits);
 
       this.device = await adapter.requestDevice({
         requiredLimits: {
@@ -58,25 +50,45 @@ export class WebGPURenderer {
 
       this.context = canvas.getContext("webgpu");
       if (!this.context) {
+        console.log("Failed to get WebGPU context");
         this.error = "Failed to get WebGPU context. This might be a browser configuration issue.";
-        return false;
+        return this.initFallback();
       }
 
-      const format = navigator.gpu.getPreferredCanvasFormat();
       this.context.configure({
         device: this.device,
         format,
         alphaMode: "premultiplied",
       });
 
-      console.log("WebGPU initialized successfully with format:", format);
+      console.log("WebGPU initialized successfully");
       return true;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.error = `WebGPU initialization failed: ${errorMessage}`;
       console.error("Detailed WebGPU error:", e);
+      return this.initFallback();
+    }
+  }
+
+  private initFallback(): boolean {
+    console.log("Initializing Canvas2D fallback");
+    if (!this.canvas) return false;
+
+    this.fallbackContext = this.canvas.getContext('2d');
+    if (!this.fallbackContext) {
+      this.error = "Failed to initialize both WebGPU and Canvas2D fallback";
       return false;
     }
+
+    // Draw something to indicate fallback mode is active
+    this.fallbackContext.fillStyle = '#333';
+    this.fallbackContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.fallbackContext.fillStyle = '#666';
+    this.fallbackContext.font = '14px monospace';
+    this.fallbackContext.fillText('Running in Canvas2D fallback mode', 10, 30);
+
+    return true;
   }
 
   async compileShader(code: string): Promise<{ success: boolean; error?: string }> {
@@ -102,8 +114,6 @@ export class WebGPURenderer {
       return { success: false, error };
     }
   }
-
-  // Additional WebGPU setup and rendering methods will go here
 }
 
 export const renderer = new WebGPURenderer();
