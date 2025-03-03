@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Node-based Creative Coding</title>
     <link rel="stylesheet" href="/src/styles/nodes.css">
+    <link rel="stylesheet" href="/src/styles/lint.css">
   </head>
   <body>
-    <div id="node-container">
-      <svg id="connections"></svg>
+    <div id="root">
+      <div id="node-container">
+        <svg id="connections"></svg>
+      </div>
     </div>
-    <script type="module" src="/src/lib/node-system.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

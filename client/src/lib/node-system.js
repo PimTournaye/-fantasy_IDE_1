@@ -1,10 +1,12 @@
-// Import CodeMirror packages at the top
-import { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
-import { basicSetup } from '@codemirror/basic-setup';
-import { javascript } from '@codemirror/lang-javascript';
+// Import CodeMirror and styles
+import CodeMirror from 'codemirror';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/theme/monokai.css';
+import 'codemirror/mode/glsl/glsl'; // Added GLSL mode
 
-// Node management and rendering system
+
+let isExpanded = false;
+
 class NodeSystem {
   constructor() {
     this.container = document.getElementById('node-container');
@@ -44,12 +46,10 @@ class NodeSystem {
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
-        ${type === 'webgl' ? `
-          <canvas></canvas>
-          <div class="code-editor"></div>
-        ` : ''}
+        ${type === 'webgl' ? '<canvas></canvas>' : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
       </div>
+      <div id="editor" class="code-editor"></div>
       <div class="node-ports">
         <div class="input-port"></div>
         <div class="output-port"></div>
@@ -104,40 +104,58 @@ void main() {
 }`;
   }
 
-  initializeCodeEditor(node) {
-    const editorContainer = node.element.querySelector('.code-editor');
-    if (!editorContainer) return;
+  toggleNodeExpansion(id) {
+    const node = this.nodes.get(id);
+    if (!node || node.type !== 'webgl') return;
 
-    // Create a new editor instance
-    const editor = new EditorView({
-      state: EditorState.create({
-        doc: node.code,
-        extensions: [
-          basicSetup,
-          javascript(),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              const newCode = update.state.doc.toString();
-              this.updateShader(node, newCode);
-            }
-          })
-        ]
-      }),
-      parent: editorContainer
-    });
+    isExpanded = !isExpanded;
+    node.element.classList.toggle('expanded');
 
-    node.editor = editor;
+    if (isExpanded && !node.editor) {
+      const editorContainer = node.element.querySelector('#editor');
+      if (!editorContainer) {
+        console.error('Editor container not found');
+        return;
+      }
+
+      console.log('Initializing editor...', { container: editorContainer, code: node.code });
+
+      // Initialize CodeMirror
+      node.editor = CodeMirror(editorContainer, {
+        value: node.code,
+        lineNumbers: true,
+        mode: "x-shader/x-vertex",
+        theme: "monokai",
+        gutters: ["CodeMirror-lint-markers"],
+        lint: true,
+        lineWrapping: true
+      });
+
+      // Set up change handler
+      node.editor.on('change', () => {
+        isExpanded = true;
+        this.updateEditorVisibility(node);
+        const fragmentCode = node.editor.getValue();
+        this.updateShader(node, fragmentCode);
+      });
+    }
+
+    this.updateEditorVisibility(node);
+  }
+
+  updateEditorVisibility(node) {
+    const editorElement = node.element.querySelector('.CodeMirror');
+    if (editorElement) {
+      editorElement.style.display = isExpanded ? 'block' : 'none';
+    }
   }
 
   updateShader(node, fragmentCode) {
-    if (!node.data || !node.data.gl) return;
-
-    const errors = this.checkFragmentShader(node.data.gl, fragmentCode);
-    if (errors.length > 0) {
-      console.log("Shader compilation errors:", errors);
+    if (this.checkFragmentShader(node.data.gl, fragmentCode).length > 0) {
+      console.log("error in shader");
       return;
     }
-
+    console.log("NO error in shader");
     node.code = fragmentCode;
     node.isDirty = true;
     this.updateShaderProgram(node);
@@ -148,22 +166,21 @@ void main() {
     gl.shaderSource(shader, shaderCode);
     gl.compileShader(shader);
 
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const infoLog = gl.getShaderInfoLog(shader);
-      const errors = infoLog.split(/\r|\n/);
+    const compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (!compiled) {
+      const errors = gl.getShaderInfoLog(shader).split(/\r|\n/);
       const ret = [];
 
       for (let error of errors) {
         if (!error) continue;
         const splitResult = error.split(":");
-        if (splitResult.length >= 4) {
-          ret.push({
-            message: splitResult[3] + (splitResult[4] || ""),
-            character: splitResult[1],
-            line: splitResult[2]
-          });
-        }
+        ret.push({
+          message: splitResult[3] + (splitResult[4] || ""),
+          character: splitResult[1],
+          line: splitResult[2]
+        });
       }
+
       gl.deleteShader(shader);
       return ret;
     }
@@ -172,53 +189,44 @@ void main() {
     return [];
   }
 
-  toggleNodeExpansion(id) {
-    const node = this.nodes.get(id);
-    if (!node || node.type !== 'webgl') return;
-
-    const isExpanded = node.element.classList.toggle('expanded');
-
-    if (isExpanded && !node.editor) {
-      // Short delay to ensure DOM is updated
-      requestAnimationFrame(() => {
-        this.initializeCodeEditor(node);
-      });
-    }
-  }
-
   updateShaderProgram(node) {
-    const { gl } = node.data;
-
-    // Create vertex shader
+    if (!node.data || !node.data.gl) return;
+    const { gl, program, texture, canvas, positionLocation, textureLocation } = node.data;
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertexShader, `
-      attribute vec2 position;
-      varying vec2 texCoord;
-      void main() {
-        texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
-        gl_Position = vec4(position, 0.0, 1.0);
-      }
-    `);
+        attribute vec2 position;
+        varying vec2 texCoord;
+        void main() {
+          texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
+          gl_Position = vec4(position, 0.0, 1.0);
+        }
+      `);
     gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+      throw new Error(`Vertex shader compilation failed: ${gl.getShaderInfoLog(vertexShader)}`);
+    }
 
-    // Create fragment shader
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fragmentShader, node.code);
     gl.compileShader(fragmentShader);
 
-    // Create and link program
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    // Update node's program
-    if (node.data.program) {
-      gl.deleteProgram(node.data.program);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+      throw new Error(`Fragment shader compilation failed: ${gl.getShaderInfoLog(fragmentShader)}`);
     }
-    node.data.program = program;
-    node.data.positionLocation = gl.getAttribLocation(program, 'position');
-    node.data.textureLocation = gl.getUniformLocation(program, 'texture');
+
+    const newProgram = gl.createProgram();
+    gl.attachShader(newProgram, vertexShader);
+    gl.attachShader(newProgram, fragmentShader);
+    gl.linkProgram(newProgram);
+
+    if (!gl.getProgramParameter(newProgram, gl.LINK_STATUS)) {
+      throw new Error(`Program linking failed: ${gl.getProgramInfoLog(newProgram)}`);
+    }
+
+    gl.deleteProgram(program);
+    node.data.program = newProgram;
+    node.data.positionLocation = gl.getAttribLocation(newProgram, 'position');
+    node.data.textureLocation = gl.getUniformLocation(newProgram, 'texture');
   }
 
 
@@ -526,10 +534,10 @@ void main() {
   }
 }
 
-// Initialize the system and create test nodes
+// Initialize the system and create nodes
 const nodeSystem = new NodeSystem();
 
-// Create nodes
+// Create initial test nodes
 const webcamNode = nodeSystem.createNode('webcam', 50, 50);
 const webglNode = nodeSystem.createNode('webgl', 300, 50);
 const checkboxNode = nodeSystem.createNode('checkbox', 550, 50);
