@@ -1,32 +1,3 @@
-.node-content .error {
-  color: #e11d48;
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  background: #fef2f2;
-  border-radius: 0.5rem;
-  border: 1px solid #fecdd3;
-}
-
-.node-content .loading {
-  color: #666;
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  background: #f5f5f5;
-  border-radius: 0.5rem;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 #node-container {
   position: relative;
   width: 100%;
@@ -117,4 +88,33 @@
 .input-port:hover,
 .output-port:hover {
   background: #333;
+}
+
+.node-content .error {
+  color: #e11d48;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  background: #fef2f2;
+  border-radius: 0.5rem;
+  border: 1px solid #fecdd3;
+}
+
+.node-content .loading {
+  color: #666;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  background: #f5f5f5;
+  border-radius: 0.5rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }

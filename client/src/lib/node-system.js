@@ -113,6 +113,7 @@ class NodeSystem {
         content.innerHTML = ''; // Clear loading
         content.appendChild(video);
         node.data = video;
+        video.play(); // Ensure video starts playing
         this.processNode(node);
       };
 
@@ -158,7 +159,7 @@ class NodeSystem {
         attribute vec2 position;
         varying vec2 texCoord;
         void main() {
-          texCoord = position * 0.5 + 0.5;
+          texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
           gl_Position = vec4(position, 0.0, 1.0);
         }
       `);
@@ -199,10 +200,10 @@ class NodeSystem {
       const buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        -1, -1,
-         1, -1,
-        -1,  1,
-         1,  1
+        -1, -1,  // Bottom left
+         1, -1,  // Bottom right
+        -1,  1,  // Top left
+         1,  1   // Top right
       ]), gl.STATIC_DRAW);
 
       // Create and set up texture
@@ -222,7 +223,9 @@ class NodeSystem {
         gl,
         program,
         texture,
-        canvas
+        canvas,
+        positionLocation: gl.getAttribLocation(program, 'position'),
+        textureLocation: gl.getUniformLocation(program, 'texture')
       };
 
       console.log('WebGL initialization complete');
@@ -277,17 +280,20 @@ class NodeSystem {
 
   processWebGLNode(webcamNode, webglNode) {
     try {
-      const { gl, program, texture } = webglNode.data;
+      const { gl, program, texture, canvas, positionLocation, textureLocation } = webglNode.data;
       const video = webcamNode.data;
 
       gl.useProgram(program);
 
       // Update texture with video frame
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
+      // Set texture uniform
+      gl.uniform1i(textureLocation, 0);
+
       // Draw
-      const positionLocation = gl.getAttribLocation(program, 'position');
       gl.enableVertexAttribArray(positionLocation);
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
