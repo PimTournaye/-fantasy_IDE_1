@@ -1,8 +1,9 @@
 // Import CodeMirror packages at the top
-import { basicSetup } from '@codemirror/basic-setup';
+import { basicSetup } from 'codemirror';
 import { EditorView, keymap } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
+import { indentWithTab } from '@codemirror/commands';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 // Node management and rendering system
@@ -150,28 +151,32 @@ function process(input) {
 
   initializeCodeMirror(node) {
     const editorContainer = node.element.querySelector('.code-editor');
+    if (!editorContainer) return;
 
     const startState = EditorState.create({
       doc: node.code,
       extensions: [
         basicSetup,
-        javascript(),
+        keymap.of([indentWithTab]),
         vscodeDark,
-        EditorView.updateListener.of(update => {
+        node.type === 'javascript' ? javascript() : [],
+        EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             node.code = update.state.doc.toString();
             if (node.type === 'webgl') {
               this.tryCompileShader(node);
             }
           }
-        })
-      ]
+        }),
+      ],
     });
 
     node.editor = new EditorView({
       state: startState,
-      parent: editorContainer
+      parent: editorContainer,
     });
+
+    return () => node.editor?.destroy();
   }
 
   toggleNodeExpansion(id) {
@@ -180,8 +185,12 @@ function process(input) {
 
     const isExpanded = node.element.classList.toggle('expanded');
 
-    if (isExpanded && !node.editor) {
-      this.initializeCodeMirror(node);
+    if (isExpanded) {
+      const cleanup = this.initializeCodeMirror(node);
+      node.cleanup = cleanup;
+    } else if (node.cleanup) {
+      node.cleanup();
+      delete node.cleanup;
     }
   }
 
