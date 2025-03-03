@@ -1,0 +1,104 @@
+// ... existing code ...
+
+function init() {
+  socket = io();
+  var editorContainer = document.getElementById("editor");
+  editor = CodeMirror(editorContainer, {
+    value: _fragmentShader,
+    lineNumbers: true,
+    mode: "x-shader/x-vertex",
+    gutters: ["CodeMirror-lint-markers"],
+    lint: true,
+    lineWrapping: !isInPresentationMode()
+  });
+
+  editor.on('change', onEdit);
+  onEdit();
+}
+
+function onEdit() {
+  isExpanded = true;
+  updateEditorVisibility();
+  const fragmentCode = editor.getValue();
+  updateShader(fragmentCode);
+}
+
+function updateShader(fragmentCode) {
+  if (checkFragmentShader(fragmentCode) != []) {
+    console.log("error in shader");
+    return;
+  }
+  console.log("NO error in shader");
+  _fragmentShader = fragmentCode;
+  isDirty = true;
+}
+
+// Shader compilation and error checking
+function checkFragmentShader(shaderCode, lint = false) {
+  if (!gl) return;
+  let shader = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(shader, shaderCode);
+  gl.compileShader(shader);
+  let infoLog = gl.getShaderInfoLog(shader);
+  let result = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+  let ret = [];
+  
+  if (!result) {
+    console.log(infoLog);
+    var errors = infoLog.split(/\r|\n/);
+    for (let error of errors) {
+      var splitResult = error.split(":")
+      ret.push({
+        message: splitResult[3] + splitResult[4],
+        character: splitResult[1],
+        line: splitResult[2]
+      });
+    }
+  }
+  
+  if (result) {
+    console.log("did update");
+    _fragmentShader = shaderCode;
+    isDirty = true;
+  }
+  return ret;
+}
+
+// CodeMirror GLSL Linting Integration
+(function(mod) {
+  mod(CodeMirror);
+})(function(CodeMirror) {
+  "use strict";
+
+  function validator(text, options) {
+    var result = [];
+    var errors = checkFragmentShader(text, true);
+    if (errors) parseErrors(errors, result);
+    return result;
+  }
+
+  CodeMirror.registerHelper("lint", "x-shader/x-vertex", validator);
+
+  function parseErrors(errors, output) {
+    for (var i = 0; i < errors.length; i++) {
+      var error = errors[i];
+      if (error) {
+        if (Number(error.line) <= 0) {
+          console.warn("Cannot display error (invalid line " + error.line + ")", error);
+          continue;
+        }
+
+        var start = error.character - 1, end = start + 1;
+        var hint = {
+          message: error.message,
+          severity: "error",
+          from: CodeMirror.Pos(Number(error.line) - 1, start),
+          to: CodeMirror.Pos(Number(error.line) - 1, end)
+        };
+        output.push(hint);
+      }
+    }
+  }
+});
+
+// ... existing code ...

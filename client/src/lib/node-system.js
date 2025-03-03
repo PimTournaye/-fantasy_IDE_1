@@ -104,6 +104,74 @@ void main() {
 }`;
   }
 
+  initializeCodeEditor(node) {
+    const editorContainer = node.element.querySelector('.code-editor');
+    if (!editorContainer) return;
+
+    // Create a new editor instance
+    const editor = new EditorView({
+      state: EditorState.create({
+        doc: node.code,
+        extensions: [
+          basicSetup,
+          javascript(),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              const newCode = update.state.doc.toString();
+              this.updateShader(node, newCode);
+            }
+          })
+        ]
+      }),
+      parent: editorContainer
+    });
+
+    node.editor = editor;
+  }
+
+  updateShader(node, fragmentCode) {
+    if (!node.data || !node.data.gl) return;
+
+    const errors = this.checkFragmentShader(node.data.gl, fragmentCode);
+    if (errors.length > 0) {
+      console.log("Shader compilation errors:", errors);
+      return;
+    }
+
+    node.code = fragmentCode;
+    node.isDirty = true;
+    this.updateShaderProgram(node);
+  }
+
+  checkFragmentShader(gl, shaderCode) {
+    const shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, shaderCode);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const infoLog = gl.getShaderInfoLog(shader);
+      const errors = infoLog.split(/\r|\n/);
+      const ret = [];
+
+      for (let error of errors) {
+        if (!error) continue;
+        const splitResult = error.split(":");
+        if (splitResult.length >= 4) {
+          ret.push({
+            message: splitResult[3] + (splitResult[4] || ""),
+            character: splitResult[1],
+            line: splitResult[2]
+          });
+        }
+      }
+      gl.deleteShader(shader);
+      return ret;
+    }
+
+    gl.deleteShader(shader);
+    return [];
+  }
+
   toggleNodeExpansion(id) {
     const node = this.nodes.get(id);
     if (!node || node.type !== 'webgl') return;
@@ -116,62 +184,6 @@ void main() {
         this.initializeCodeEditor(node);
       });
     }
-  }
-
-  initializeCodeEditor(node) {
-    if (!node || node.type !== 'webgl') return;
-
-    const editorContainer = node.element.querySelector('.code-editor');
-    if (!editorContainer) {
-      console.error('Editor container not found');
-      return;
-    }
-
-    console.log('Initializing code editor...', { container: editorContainer, code: node.code });
-
-    try {
-      const state = EditorState.create({
-        doc: node.code,
-        extensions: [
-          basicSetup,
-          javascript(),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              const newCode = update.state.doc.toString();
-              node.code = newCode;
-              this.tryCompileShader(node);
-            }
-          })
-        ]
-      });
-
-      node.editor = new EditorView({
-        state,
-        parent: editorContainer
-      });
-
-      console.log('Editor initialized:', node.editor);
-    } catch (error) {
-      console.error('Error initializing editor:', error);
-    }
-  }
-
-  tryCompileShader(node) {
-    if (!node.data || !node.data.gl) return;
-
-    const { gl } = node.data;
-    const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, node.code);
-    gl.compileShader(shader);
-
-    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      node.lastWorkingCode = node.code;
-      this.updateShaderProgram(node);
-    } else {
-      console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
-    }
-
-    gl.deleteShader(shader);
   }
 
   updateShaderProgram(node) {
@@ -191,7 +203,7 @@ void main() {
 
     // Create fragment shader
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, node.lastWorkingCode);
+    gl.shaderSource(fragmentShader, node.code);
     gl.compileShader(fragmentShader);
 
     // Create and link program

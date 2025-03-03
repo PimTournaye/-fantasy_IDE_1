@@ -2,7 +2,7 @@
   position: relative;
   width: 100%;
   height: 100vh;
-  background-color: #ffecf2; /* Restore pink background */
+  background-color: #ffecf2; /* Light pink background */
   overflow: hidden;
 }
 
@@ -77,18 +77,17 @@
 .code-editor {
   display: none;
   width: 100%;
-  height: 300px;
+  height: 400px;
   background: #1E1E1E;
   border: 1px solid #333;
   border-radius: 4px;
-  overflow: hidden;
+  margin-top: 12px;
 }
 
 .node.expanded .code-editor {
   display: block;
 }
 
-/* CodeMirror Styles */
 .node.expanded .cm-editor {
   height: 100% !important;
   font-family: monospace;

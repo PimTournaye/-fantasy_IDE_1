@@ -1,0 +1,127 @@
+let isExpanded = false; // Controls editor visibility
+
+// Setup visibility and escape handling
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'setup') {
+    setupEscapeHandler();
+  } else if (event.data.type === 'reset') {
+    isExpanded = false;
+    updateEditorVisibility();
+  }
+});
+
+function setupEscapeHandler() {
+  document.addEventListener('mousedown', (e) => {
+    isExpanded = true;
+    updateEditorVisibility();
+  });
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (isExpanded) {
+        isExpanded = false;
+        updateEditorVisibility();
+        e.preventDefault();
+        window.parent.postMessage({ type: 'escape' }, '*');
+      }
+    }
+  });
+}
+
+function updateEditorVisibility() {
+  const editorElement = document.querySelector('.CodeMirror');
+  if (editorElement) {
+    editorElement.style.display = isExpanded ? 'block' : 'none';
+  }
+}
+
+function isInPresentationMode() {
+  if (window.location.pathname.split('/').pop() == 'present.html') {
+    return true;
+  }
+  return true;
+}
+
+// CSS modifiers for different modes
+function addCodeMirrorPresentModifier() {
+  const codeMirrorDiv = document.querySelector(".CodeMirror");
+  if (codeMirrorDiv) {
+    codeMirrorDiv.classList.add("CodeMirror-present");
+  }
+}
+
+function addCodeMirrorEditorModifier() {
+  const codeMirrorDiv = document.querySelector(".CodeMirror");
+  if (codeMirrorDiv) {
+    codeMirrorDiv.classList.add("CodeMirror-editor");
+  }
+}
+
+function init() {
+  // ... existing init code ...
+  
+  var editorContainer = document.getElementById("editor");
+  editor = CodeMirror(editorContainer, {
+    value: _fragmentShader,
+    lineNumbers: true,
+    mode: "x-shader/x-vertex",
+    gutters: ["CodeMirror-lint-markers"],
+    lint: true,
+    lineWrapping: !isInPresentationMode()
+  });
+
+  editor.on('change', onEdit);
+  onEdit();
+ 
+  addCodeMirrorEditorModifier();
+  
+  // Initial setup
+  setupEscapeHandler();
+  const editorElement = document.querySelector('.CodeMirror');
+  if (editorElement) {
+    editorElement.style.display = 'none';
+  }
+}
+
+// Make sure editor expands when editing
+function onEdit() {
+  isExpanded = true;
+  updateEditorVisibility();
+  // ... rest of onEdit code ...
+}
+
+// Add this CSS to your stylesheet
+const styles = `
+.CodeMirror {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.CodeMirror-present {
+  font-size: 24px;
+  line-height: 1.5;
+}
+
+.CodeMirror-editor {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* Add syntax highlighting colors */
+.cm-s-default .cm-keyword {color: #708;}
+.cm-s-default .cm-number {color: #164;}
+.cm-s-default .cm-def {color: #00f;}
+.cm-s-default .cm-variable {color: black;}
+.cm-s-default .cm-variable-2 {color: #05a;}
+.cm-s-default .cm-type {color: #085;}
+`;
+
+// Add styles to document
+const styleSheet = document.createElement("style");
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
