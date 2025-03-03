@@ -6,6 +6,36 @@
   overflow: hidden;
 }
 
+#editor {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* CodeMirror styles */
+.CodeMirror {
+  width: 100%;
+  height: 100% !important;
+  font-family: monospace;
+  font-size: 14px;
+  background: linear-gradient(0.25turn,#F2610100,#c1c1c1,#F2610100, #F2610100), rgba(0,0,0,0.2) !important;
+}
+
+.CodeMirror-gutters {
+  border-right: 1px solid #000;
+  background-color: #00000000 !important;
+}
+
+.CodeMirror-present {
+  background-color: rgba(255, 255, 255, 0.0) !important;
+  text-shadow: 1px 1px #555555;
+  caret-color: red !important;
+}
+
 .node {
   position: absolute;
   width: 280px;
@@ -48,17 +78,6 @@
   height: 100%;
   z-index: 1000;
   background-color: rgba(0, 0, 0, 0.8);
-}
-
-.CodeMirror {
-  height: 100% !important;
-  font-family: monospace;
-  background: linear-gradient(0.25turn,#F2610100,#c1c1c1,#F2610100, #F2610100), rgba(0,0,0,0.2) !important;
-}
-
-.CodeMirror-gutters {
-  border-right: 1px solid #000;
-  background-color: #00000000 !important;
 }
 
 .node-ports {

@@ -1,10 +1,9 @@
-// Import CodeMirror packages at the top
-import { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
-import { basicSetup } from '@codemirror/basic-setup';
-import { javascript } from '@codemirror/lang-javascript';
+// Global state
+let editor;
+let isExpanded = true;
+let isDirty = false;
+let _fragmentShader;
 
-// Node management and rendering system
 class NodeSystem {
   constructor() {
     this.container = document.getElementById('node-container');
@@ -13,6 +12,94 @@ class NodeSystem {
     this.draggedNode = null;
     this.dragOffset = { x: 0, y: 0 };
     this.setupEventListeners();
+    this.initializeEditor();
+  }
+
+  initializeEditor() {
+    const editorContainer = document.getElementById("editor");
+    if (!editorContainer) {
+      console.error("Editor container not found");
+      return;
+    }
+
+    // Initialize with default shader code
+    _fragmentShader = this.getDefaultShaderCode();
+
+    editor = CodeMirror(editorContainer, {
+      value: _fragmentShader,
+      lineNumbers: true,
+      mode: "x-shader/x-vertex",
+      gutters: ["CodeMirror-lint-markers"],
+      lint: true,
+      lineWrapping: true
+    });
+
+    editor.on('change', () => {
+      isExpanded = true;
+      this.updateEditorVisibility();
+      const fragmentCode = editor.getValue();
+      this.updateShader(fragmentCode);
+    });
+
+    // Show editor initially
+    this.updateEditorVisibility();
+  }
+
+  updateEditorVisibility() {
+    const editorElement = document.querySelector('.CodeMirror');
+    if (editorElement) {
+      editorElement.style.display = isExpanded ? 'block' : 'none';
+    }
+  }
+
+  onEdit() {
+    isExpanded = true;
+    this.updateEditorVisibility();
+    const fragmentCode = editor.getValue();
+    this.updateShader(fragmentCode);
+  }
+
+  getDefaultShaderCode() {
+    return `precision mediump float;
+varying vec2 texCoord;
+uniform sampler2D texture;
+
+void main() {
+  vec4 color = texture2D(texture, texCoord);
+  float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  float posterized = step(0.5, gray);
+  gl_FragColor = vec4(vec3(posterized), 1.0);
+}`;
+  }
+
+  updateShader(fragmentCode) {
+    const webglNode = Array.from(this.nodes.values()).find(node => node.type === 'webgl');
+    if (!webglNode || !webglNode.data || !webglNode.data.gl) return;
+
+    const errors = this.checkShaderErrors(webglNode.data.gl, fragmentCode);
+    if (errors.length > 0) {
+      console.log("Shader errors:", errors);
+      return;
+    }
+
+    console.log("Shader updated successfully");
+    webglNode.code = fragmentCode;
+    _fragmentShader = fragmentCode;
+    isDirty = true;
+    this.updateShaderProgram(webglNode);
+  }
+
+  checkShaderErrors(gl, code) {
+    const shader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(shader, code);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const infoLog = gl.getShaderInfoLog(shader);
+      return infoLog.split('\n').filter(Boolean);
+    }
+
+    return [];
   }
 
   setupEventListeners() {
@@ -43,7 +130,7 @@ class NodeSystem {
       </div>
       <div class="node-content">
         ${type === 'webcam' ? '<video autoplay playsinline></video>' : ''}
-        ${type === 'webgl' ? '<canvas></canvas><div class="code-editor"></div>' : ''}
+        ${type === 'webgl' ? '<canvas></canvas>' : ''}
         ${type === 'checkbox' ? '<div class="checkbox-grid"></div>' : ''}
       </div>
       <div class="node-ports">
@@ -81,134 +168,7 @@ class NodeSystem {
     // Initialize node-specific functionality
     this.initializeNode(id, type);
 
-    // If it's a WebGL node, initialize the editor immediately
-    if (type === 'webgl') {
-      requestAnimationFrame(() => {
-        this.initializeCodeEditor(this.nodes.get(id));
-      });
-    }
-
     return id;
-  }
-
-  getDefaultShaderCode() {
-    return `precision mediump float;
-varying vec2 texCoord;
-uniform sampler2D texture;
-
-void main() {
-  vec4 color = texture2D(texture, texCoord);
-  float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-  float posterized = step(0.5, gray);
-  gl_FragColor = vec4(vec3(posterized), 1.0);
-}`;
-  }
-
-  initializeCodeEditor(node) {
-    if (!node || node.type !== 'webgl') return;
-
-    const editorContainer = node.element.querySelector('.code-editor');
-    if (!editorContainer) return;
-
-    try {
-      const state = EditorState.create({
-        doc: node.code,
-        extensions: [
-          basicSetup,
-          javascript(),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              const newCode = update.state.doc.toString();
-              this.updateShader(node, newCode);
-            }
-          })
-        ]
-      });
-
-      node.editor = new EditorView({
-        state,
-        parent: editorContainer
-      });
-
-    } catch (error) {
-      console.error('Error initializing editor:', error);
-    }
-  }
-
-  updateShader(node, newCode) {
-    if (!node.data || !node.data.gl) return;
-
-    const errors = this.checkShaderErrors(node.data.gl, newCode);
-    if (errors.length > 0) {
-      console.error('Shader errors:', errors);
-      return;
-    }
-
-    node.code = newCode;
-    node.lastWorkingCode = newCode;
-    this.updateShaderProgram(node);
-  }
-
-  checkShaderErrors(gl, code) {
-    const shader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(shader, code);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const infoLog = gl.getShaderInfoLog(shader);
-      return infoLog.split('\n').filter(Boolean);
-    }
-
-    return [];
-  }
-
-  toggleNodeExpansion(id) {
-    const node = this.nodes.get(id);
-    if (!node || node.type !== 'webgl') return;
-
-    const isExpanded = node.element.classList.toggle('expanded');
-
-    if (isExpanded && !node.editor) {
-      // Short delay to ensure DOM is updated
-      requestAnimationFrame(() => {
-        this.initializeCodeEditor(node);
-      });
-    }
-  }
-
-  updateShaderProgram(node) {
-    const { gl } = node.data;
-
-    // Create vertex shader
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, `
-      attribute vec2 position;
-      varying vec2 texCoord;
-      void main() {
-        texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
-        gl_Position = vec4(position, 0.0, 1.0);
-      }
-    `);
-    gl.compileShader(vertexShader);
-
-    // Create fragment shader
-    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, node.code);
-    gl.compileShader(fragmentShader);
-
-    // Create and link program
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    // Update node's program
-    if (node.data.program) {
-      gl.deleteProgram(node.data.program);
-    }
-    node.data.program = program;
-    node.data.positionLocation = gl.getAttribLocation(program, 'position');
-    node.data.textureLocation = gl.getUniformLocation(program, 'texture');
   }
 
 
@@ -232,11 +192,11 @@ void main() {
   async initializeWebcam(node) {
     try {
       console.log('Requesting webcam access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
           width: 320,
           height: 240
-        } 
+        }
       });
 
       const video = node.element.querySelector('video');
@@ -248,10 +208,10 @@ void main() {
 
       video.onloadedmetadata = () => {
         console.log('Webcam stream loaded');
-        content.innerHTML = ''; 
+        content.innerHTML = '';
         content.appendChild(video);
         node.data = video;
-        video.play(); 
+        video.play();
         this.processNode(node);
       };
 
@@ -272,7 +232,7 @@ void main() {
         errorMessage = 'Webcam is already in use by another application.';
       }
 
-      node.element.querySelector('.node-content').innerHTML = 
+      node.element.querySelector('.node-content').innerHTML =
         `<div class="error">${errorMessage}</div>`;
     }
   }
@@ -308,7 +268,7 @@ void main() {
       }
 
       const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fragmentShader, node.lastWorkingCode); 
+      gl.shaderSource(fragmentShader, node.lastWorkingCode);
       gl.compileShader(fragmentShader);
 
       if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -329,9 +289,9 @@ void main() {
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
         -1, -1,  // Bottom left
-         1, -1,  // Bottom right
+        1, -1,  // Bottom right
         -1,  1,  // Top left
-         1,  1   // Top right
+        1,  1   // Top right
       ]), gl.STATIC_DRAW);
 
       // Create and set up texture
@@ -366,7 +326,7 @@ void main() {
 
   initializeCheckboxGrid(node) {
     const grid = node.element.querySelector('.checkbox-grid');
-    const size = 32; 
+    const size = 32;
     for (let i = 0; i < size * size; i++) {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -438,7 +398,7 @@ void main() {
 
     } catch (error) {
       console.error('WebGL processing error:', error);
-      webglNode.element.querySelector('.node-content').innerHTML = 
+      webglNode.element.querySelector('.node-content').innerHTML =
         `<div class="error">Processing error: ${error.message}</div>`;
     }
   }
@@ -514,12 +474,46 @@ void main() {
       svg.appendChild(path);
     });
   }
+  updateShaderProgram(node) {
+    const { gl } = node.data;
+
+    // Create vertex shader
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, `
+      attribute vec2 position;
+      varying vec2 texCoord;
+      void main() {
+        texCoord = vec2(position.x * 0.5 + 0.5, position.y * -0.5 + 0.5);
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `);
+    gl.compileShader(vertexShader);
+
+    // Create fragment shader
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, node.code);
+    gl.compileShader(fragmentShader);
+
+    // Create and link program
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    // Update node's program
+    if (node.data.program) {
+      gl.deleteProgram(node.data.program);
+    }
+    node.data.program = program;
+    node.data.positionLocation = gl.getAttribLocation(program, 'position');
+    node.data.textureLocation = gl.getUniformLocation(program, 'texture');
+  }
 }
 
-// Initialize the system and create test nodes
+// Initialize the system
 const nodeSystem = new NodeSystem();
 
-// Create nodes
+// Create test nodes
 const webcamNode = nodeSystem.createNode('webcam', 50, 50);
 const webglNode = nodeSystem.createNode('webgl', 300, 50);
 const checkboxNode = nodeSystem.createNode('checkbox', 550, 50);
