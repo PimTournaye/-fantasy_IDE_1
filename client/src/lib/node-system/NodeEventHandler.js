@@ -1,10 +1,16 @@
-class NodeEventHandler {
+export class NodeEventHandler {
     constructor(nodeSystem) {
         this.nodeSystem = nodeSystem;
         this.draggedNode = null;
         this.dragOffset = { x: 0, y: 0 };
         this.draggedConnection = null;
         this.tempConnection = null;
+        this.animationSpeed = 2;
+        this.isAnimating = false;
+        this.nodeVelocities = new Map();
+        
+        // Add animation control buttons
+        this.setupAnimationControls();
     }
 
     initializeEventListeners() {
@@ -249,6 +255,94 @@ class NodeEventHandler {
             this.nodeSystem.shaderManager.updateShaderConnection(fromNode, toNode);
         }
     }
-}
+
+    setupAnimationControls() {
+        // Bounce button
+        const bounceButton = document.createElement('button');
+        bounceButton.className = 'bounce-button';
+        bounceButton.textContent = 'Toggle Bounce';
+        bounceButton.onclick = () => this.toggleBounce();
+        document.body.appendChild(bounceButton);
+
+        // Speed up button
+        const speedUpButton = document.createElement('button');
+        speedUpButton.className = 'speed-up-button';
+        speedUpButton.textContent = 'Speed Up';
+        speedUpButton.onclick = () => this.speedUp();
+        document.body.appendChild(speedUpButton);
+
+        // Slow down button
+        const slowDownButton = document.createElement('button');
+        slowDownButton.className = 'slow-down-button';
+        slowDownButton.textContent = 'Slow Down';
+        slowDownButton.onclick = () => this.slowDown();
+        document.body.appendChild(slowDownButton);
+    }
+
+    toggleBounce() {
+        if (!this.isAnimating) {
+            this.startBouncing();
+        } else {
+            this.stopBouncing();
+        }
+    }
+
+    startBouncing() {
+        this.isAnimating = true;
+        
+        // Initialize random velocities for each node
+        this.nodeSystem.nodes.forEach((nodeData, id) => {
+            if (!this.nodeVelocities.has(id)) {
+                this.nodeVelocities.set(id, {
+                    x: (Math.random() - 0.5) * 5,
+                    y: (Math.random() - 0.5) * 5
+                });
+            }
+        });
+        
+        const animate = () => {
+            if (!this.isAnimating) return;
+            
+            this.nodeSystem.nodes.forEach((nodeData, id) => {
+                const node = nodeData.element;
+                const velocity = this.nodeVelocities.get(id);
+                
+                let rect = node.getBoundingClientRect();
+                let newX = rect.left + velocity.x * this.animationSpeed;
+                let newY = rect.top + velocity.y * this.animationSpeed;
+                
+                // Bounce off walls
+                if (newX <= 0 || newX + rect.width >= window.innerWidth) {
+                    velocity.x *= -1;
+                    newX = Math.max(0, Math.min(newX, window.innerWidth - rect.width));
+                }
+                
+                if (newY <= 0 || newY + rect.height >= window.innerHeight) {
+                    velocity.y *= -1;
+                    newY = Math.max(0, Math.min(newY, window.innerHeight - rect.height));
+                }
+                
+                node.style.left = `${newX}px`;
+                node.style.top = `${newY}px`;
+            });
+            
+            requestAnimationFrame(animate);
+        };
+        
+        animate();
+    }
+    
+    stopBouncing() {
+        this.isAnimating = false;
+    }
+
+    speedUp() {
+        this.animationSpeed = Math.min(this.animationSpeed + 100, 1000);
+    }
+
+    slowDown() {
+        this.animationSpeed = Math.max(this.animationSpeed - 100, 1);
+    }
+} 
 
 export default NodeEventHandler; 

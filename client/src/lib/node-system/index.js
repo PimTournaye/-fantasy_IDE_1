@@ -42,37 +42,19 @@ class NodeSystem {
         }
         
         toolbar = document.createElement('div');
-        toolbar.id = 'toolbar';
-        toolbar.style.position = 'fixed';
-        toolbar.style.top = '10px';
-        toolbar.style.left = '10px';
-        toolbar.style.zIndex = '1000';
-        toolbar.style.padding = '10px';
-        toolbar.style.background = 'rgba(30, 30, 30, 0.8)';
-        toolbar.style.borderRadius = '5px';
         
         // Add WebGL node button
         const webglButton = document.createElement('button');
+        webglButton.className = 'webgl-button';
         webglButton.textContent = 'Add WebGL Node';
-        webglButton.style.padding = '8px 16px';
-        webglButton.style.margin = '0 5px';
-        webglButton.style.background = '#4CAF50';
-        webglButton.style.color = 'white';
-        webglButton.style.border = 'none';
-        webglButton.style.borderRadius = '4px';
-        webglButton.style.cursor = 'pointer';
-        webglButton.style.fontSize = '14px';
-        
         webglButton.onclick = () => {
-            console.log('WebGL button clicked');
-            this.createNode('webgl', 50, 50);
+            const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
+            const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
+            this.createNode('webgl', randomX, randomY);
         };
         
         toolbar.appendChild(webglButton);
         document.body.appendChild(toolbar);
-        
-        console.log('Toolbar created with button');
-        return toolbar;
     }
 
     createNode(type, x, y) {
