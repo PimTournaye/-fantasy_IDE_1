@@ -1150,3 +1150,10 @@ void main() {
 
 `;
 
+export const fragmentShaders = [
+    _fragmentShaderA,  
+    _fragmentShaderB,
+    _fragmentShaderC,
+    _fragmentShaderD,
+    _fragmentShaderE,
+];

@@ -1,9 +1,15 @@
+@font-face {
+  font-family: 'Bianzhidai';
+  src: url('./bianzhidai_COLR-RGB.otf') format('opentype');
+}
+
 #node-container {
   position: relative;
   width: 100%;
   height: 100vh;
   background-color: #ffecf2;
   overflow: hidden;
+  font-family: 'Bianzhidai', monospace;
 }
 
 #editor {
@@ -17,10 +23,72 @@
   transition: background-color 0.3s ease;
 }
 
+.add-webgl-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background: #534caf;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Bianzhidai', monospace;
+  font-size: 16px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+
+.add-webgl-button:hover {
+  font-family: 'Bianzhidai', monospace;
+  background: #cd4be3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.add-webgl-button:active {
+  font-family: 'Bianzhidai', monospace;
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}.webgl-button {
+  font-family: 'Bianzhidai', monospace;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background-color: #af4cac;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.webgl-button:hover {
+  background-color: #a0459d;
+}
+
 #editor.visible {
   background-color: rgba(0, 0, 0, 0.8);
 }
+.compile-button {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 8px 16px;
+  background-color: #964caf;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Bianzhidai', monospace;
+}
 
+.compile-button:hover {
+  background-color: hsl(250, 40%, 45%);
+  font-family: 'Bianzhidai', monospace;
+}
 /* CodeMirror styles */
 .CodeMirror {
   width: 100%;
@@ -42,13 +110,15 @@
 }
 
 .node {
+  transition: all 0.3s ease-out;
+  z-index: 1;
   position: absolute;
   width: 280px;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 2;
   user-select: none;
+  font-family: 'Bianzhidai', monospace;
 }
 
 /* Make checkbox node wider to fit grid */
@@ -91,6 +161,8 @@
 }
 
 .node-ports {
+  position: relative;
+  z-index: 1001;
   display: flex;
   justify-content: space-between;
   padding: 8px 12px;
@@ -100,6 +172,8 @@
 
 .input-port,
 .output-port {
+  z-index: 1001;
+  position: relative;
   width: 12px;
   height: 12px;
   background: #666;
@@ -139,6 +213,14 @@
   height: 100%;
   pointer-events: none;
   z-index: 1;
+  fill: none;
+}
+
+.connection-line {
+  pointer-events: none;
+  fill: none;
+  stroke: #666;
+  stroke-width: 3;
 }
 
 .expand-button {
@@ -147,7 +229,9 @@
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
+  font-family: 'Bianzhidai', monospace;
   font-size: 12px;
+  z-index: 102;
 }
 
 .expand-button:hover {
@@ -160,27 +244,53 @@
 }
 
 .node.expanded {
-  width: 600px;
+  position: fixed !important;
+  left: 20px !important;
+  top: 20px !important;
+  width: calc(100vw - 40px) !important;
+  height: calc(100vh - 40px) !important;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.9);
 }
 
-.node.expanded .cm-editor {
+.node.expanded .node-content {
+  width: 100%;
+  height: calc(100% - 40px); /* Account for header */
+}
+
+.node.expanded canvas {
+  width: 100% !important;
   height: 100% !important;
-  font-family: monospace;
-  font-size: 14px;
-  background: #1E1E1E !important;
-  color: #D4D4D4;
 }
 
-.node.expanded .cm-scroller {
-  height: 100% !important;
-  overflow: auto !important;
+.node.expanded .node-header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: transparent;
+  z-index: 101;
 }
 
-.node.expanded .cm-gutters {
-  background: #1E1E1E !important;
-  border-right: 1px solid #404040;
-  color: #858585;
+.node.expanded .node-ports {
+  display: none;
 }
-.node.expanded .code-editor {
-  display: block;
+
+#editor.transparent {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure SVG container stays on top */
+#connection-svg {
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Make connection points clickable even when SVG is on top */
+.input-port, .output-port {
+  z-index: 1001;
+  position: relative;
+}
+
+.connection-line {
+  pointer-events: none;
 }

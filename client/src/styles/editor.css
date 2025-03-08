@@ -1,0 +1,112 @@
+#editor {
+    position: absolute;
+    width: 400px;
+    height: 300px;
+    background: rgba(39, 40, 34, 0.0) ;
+    z-index: 999;
+    display: none;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Expanded canvas editor styles */
+#editor.expanded {
+    width: 50vw;
+    height: 80vh;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+}
+
+.CodeMirror {
+    height: 100% !important;
+    font-size: 14px;
+}
+
+/* Canvas expansion styles */
+canvas.expanded {
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* Fullscreen editor styles */
+#editor.fullscreen {
+    width: 50vw;
+    height: 80vh;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+}
+
+.CodeMirror {
+    height: 100% !important;
+    font-size: 14px;
+}
+
+/* Add styles for the canvas in fullscreen */
+canvas:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas:-moz-full-screen {
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas:-ms-fullscreen {
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas:fullscreen {
+    width: 100vw;
+    height: 100vh;
+}
+
+.node {
+    transition: all 0.3s ease-in-out;
+    position: absolute;
+}
+
+.node.expanded {
+    width: calc(100vw - 40px) !important;
+    height: calc(100vh - 40px) !important;
+    top: 20px !important;
+    left: 20px !important;
+    z-index: 998;
+}
+
+.node.expanded .node-content {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.node.expanded canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Expanded editor styles */
+.node.expanded ~ #editor,
+.node.expanded + #editor {
+    width: 70vw;
+    height: 90vh;
+    background: rgba(39, 40, 34, 0.3);
+    /* backdrop-filter: blur(2px); */
+    z-index: 9999;
+}
+
+.CodeMirror {
+    height: 100% !important;
+    font-size: 14px;
+    background: transparent !important;
+}
+
+.CodeMirror-gutters {
+    background: rgba(39, 40, 34, 0.4) !important;
+}
+
+.CodeMirror-lines {
+    background: rgba(39, 40, 34, 0.2);
+}

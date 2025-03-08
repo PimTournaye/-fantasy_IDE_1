@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Node-based Creative Coding</title>
+    <title>Node System</title>
 
     <!-- CodeMirror CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
     <link rel="stylesheet" href="/src/styles/nodes.css" />
     <link rel="stylesheet" href="/src/styles/lint.css" />
+    <link rel="stylesheet" href="src/styles/editor.css">
 
     <!-- CodeMirror JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
@@ -25,6 +26,11 @@
       <div id="editor"></div>
       <svg id="connections"></svg>
     </div>
-    <script type="module" src="/src/lib/node-system.js"></script>
+    
+    <!-- Add defaultShaders.js as a module -->
+    <script type="module" src="/src/lib/defaultShaders.js"></script>
+    
+    <!-- Add main.js to initialize the NodeSystem -->
+    <script type="module" src="src/main.js"></script>
   </body>
 </html>

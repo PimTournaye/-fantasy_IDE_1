@@ -1,13 +1,16 @@
 /* ====================================
   GLOBAL STYLES
 ======================================= */
-
+@font-face {
+  font-family: 'Bianzhidai';
+  src: url('./bianzhidai_COLR-RGB.otf') format('opentype');
+}
 * {
   box-sizing: border-box;
 }
 
 body {
-  font-family: "Benton Sans", "Helvetica Neue", helvetica, arial, sans-serif;
+  font-family: "Bianzhidai", "Helvetica Neue", helvetica, arial, sans-serif;
   background-color : black;
   overflow: hidden;
   caret-color: red;
@@ -135,16 +138,32 @@ button:active {
   width: 100%;
   height: 100%;
   z-index: 100;
+  transition: z-index 0s;
 }
-
+#editor.visible {
+  z-index: 1000;
+}
 #canvas-container {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   z-index: 1;
 }
+
+.node {
+  position: relative;
+}
+
+.node canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 /* ====================================
   CodeMirror CUSTOM STYLES
 ======================================= */
