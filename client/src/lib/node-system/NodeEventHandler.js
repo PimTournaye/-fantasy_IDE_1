@@ -11,22 +11,19 @@ export class NodeEventHandler {
         
         // Add animation control buttons
         this.setupAnimationControls();
+        this.initializeEventListeners();
     }
 
     initializeEventListeners() {
-        this.setupDragEvents();
-        this.setupConnectionEvents();
-        this.setupResizeEvents();
-        this.setupEditorEvents();
-    }
-
-    setupDragEvents() {
+        // Node dragging
         this.nodeSystem.container.addEventListener('mousedown', (e) => {
+            // Only start dragging if clicking the header
+            const nodeHeader = e.target.closest('.node-header');
             const node = e.target.closest('.node');
-            if (!node) return;
+            if (!nodeHeader || !node) return;
 
-            // Don't initiate drag if clicking canvas or if node is expanded
-            if (e.target.tagName === 'CANVAS' || node.classList.contains('expanded')) {
+            // Don't initiate drag if node is expanded
+            if (node.classList.contains('expanded')) {
                 return;
             }
 
@@ -42,15 +39,97 @@ export class NodeEventHandler {
             if (this.draggedNode) {
                 const x = e.clientX - this.dragOffset.x;
                 const y = e.clientY - this.dragOffset.y;
-                this.draggedNode.style.left = `${x}px`;
-                this.draggedNode.style.top = `${y}px`;
-                this.nodeSystem.connectionManager.updateConnections(this.draggedNode.id);
+                this.updateNodePosition(x, y);
             }
         });
 
         document.addEventListener('mouseup', () => {
-            this.draggedNode = null;
+            if (this.draggedNode) {
+                // Final connection update
+                if (this.nodeSystem.connectionManager) {
+                    this.nodeSystem.connectionManager.updateConnections();
+                }
+                this.draggedNode = null;
+            }
         });
+
+        // Port connection handling
+        this.nodeSystem.container.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('output-port')) {
+                const nodeId = e.target.closest('.node').id;
+                this.startConnectionDrag(nodeId, e);
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (this.draggedConnection) {
+                this.updateConnectionDrag(e);
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (this.draggedConnection) {
+                if (e.target.classList.contains('input-port')) {
+                    const toNodeId = e.target.closest('.node').id;
+                    this.completeConnection(this.draggedConnection.fromId, toNodeId);
+                }
+                this.cancelConnectionDrag();
+            }
+        });
+    }
+
+    updateNodePosition(x, y) {
+        if (!this.draggedNode) return;
+        
+        // Update node position
+        this.draggedNode.style.left = `${x}px`;
+        this.draggedNode.style.top = `${y}px`;
+        
+        // Force connection update immediately
+        if (this.nodeSystem.connectionManager) {
+            // Get the node's ID and update its connections
+            const nodeId = this.draggedNode.id;
+            const connections = this.nodeSystem.connectionManager.getConnections(nodeId);
+            
+            // Update each connection involving this node
+            connections.forEach((connection) => {
+                const fromNode = document.getElementById(connection.from);
+                const toNode = document.getElementById(connection.to);
+                
+                if (fromNode && toNode) {
+                    const fromPort = fromNode.querySelector('.output-port');
+                    const toPort = toNode.querySelector('.input-port');
+                    
+                    if (fromPort && toPort) {
+                        // Get positions relative to the container
+                        const containerRect = this.nodeSystem.container.getBoundingClientRect();
+                        const fromRect = fromPort.getBoundingClientRect();
+                        const toRect = toPort.getBoundingClientRect();
+
+                        const fromX = fromRect.left - containerRect.left + (fromRect.width / 2);
+                        const fromY = fromRect.top - containerRect.top + (fromRect.height / 2);
+                        const toX = toRect.left - containerRect.left + (toRect.width / 2);
+                        const toY = toRect.top - containerRect.top + (toRect.height / 2);
+
+                        // Calculate bezier curve
+                        const dx = toX - fromX;
+                        const dy = toY - fromY;
+                        const curve = Math.min(Math.abs(dx) / 2, 100);
+                        
+                        const pathData = `M ${fromX},${fromY} 
+                                        C ${fromX + curve},${fromY}
+                                          ${toX - curve},${toY}
+                                          ${toX},${toY}`;
+
+                        // Update the path
+                        const path = document.getElementById(`connection-${connection.from}-${connection.to}`);
+                        if (path) {
+                            path.setAttribute('d', pathData);
+                        }
+                    }
+                }
+            });
+        }
     }
 
     setupConnectionEvents() {
@@ -257,26 +336,10 @@ export class NodeEventHandler {
     }
 
     setupAnimationControls() {
-        // Bounce button
-        const bounceButton = document.createElement('button');
-        bounceButton.className = 'bounce-button';
-        bounceButton.textContent = 'Toggle Bounce';
-        bounceButton.onclick = () => this.toggleBounce();
-        document.body.appendChild(bounceButton);
-
-        // Speed up button
-        const speedUpButton = document.createElement('button');
-        speedUpButton.className = 'speed-up-button';
-        speedUpButton.textContent = 'Speed Up';
-        speedUpButton.onclick = () => this.speedUp();
-        document.body.appendChild(speedUpButton);
-
-        // Slow down button
-        const slowDownButton = document.createElement('button');
-        slowDownButton.className = 'slow-down-button';
-        slowDownButton.textContent = 'Slow Down';
-        slowDownButton.onclick = () => this.slowDown();
-        document.body.appendChild(slowDownButton);
+        // No longer creating buttons here
+        this.animationSpeed = 1;
+        this.isAnimating = false;
+        this.nodeVelocities = new Map();
     }
 
     toggleBounce() {
@@ -290,13 +353,10 @@ export class NodeEventHandler {
     startBouncing() {
         this.isAnimating = true;
         
-        // Initialize random velocities for each node
+        // Initialize random velocities for each node if they don't have one
         this.nodeSystem.nodes.forEach((nodeData, id) => {
             if (!this.nodeVelocities.has(id)) {
-                this.nodeVelocities.set(id, {
-                    x: (Math.random() - 0.5) * 5,
-                    y: (Math.random() - 0.5) * 5
-                });
+                this.initializeNodeVelocity(id);
             }
         });
         
@@ -305,6 +365,10 @@ export class NodeEventHandler {
             
             this.nodeSystem.nodes.forEach((nodeData, id) => {
                 const node = nodeData.element;
+                // Initialize velocity if it doesn't exist
+                if (!this.nodeVelocities.has(id)) {
+                    this.initializeNodeVelocity(id);
+                }
                 const velocity = this.nodeVelocities.get(id);
                 
                 let rect = node.getBoundingClientRect();
@@ -326,6 +390,11 @@ export class NodeEventHandler {
                 node.style.top = `${newY}px`;
             });
             
+            // Update connections
+            if (this.nodeSystem.connectionManager) {
+                this.nodeSystem.connectionManager.updateConnections();
+            }
+            
             requestAnimationFrame(animate);
         };
         
@@ -337,12 +406,93 @@ export class NodeEventHandler {
     }
 
     speedUp() {
-        this.animationSpeed = Math.min(this.animationSpeed + 100, 1000);
+        this.animationSpeed = Math.min(this.animationSpeed + 39, 1000);
     }
 
     slowDown() {
-        this.animationSpeed = Math.max(this.animationSpeed - 100, 1);
+        this.animationSpeed = Math.max(this.animationSpeed - 39, 1);
     }
-} 
+
+    startConnectionDrag(fromId, event) {
+        this.draggedConnection = {
+            fromId,
+            fromPos: this.getPortPosition(fromId, 'output')
+        };
+
+        // Create temporary SVG connection line
+        this.tempConnection = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.tempConnection.setAttribute('class', 'connection-line temp');
+        
+        const svg = document.getElementById('connections');
+        if (svg) {
+            svg.appendChild(this.tempConnection);
+        }
+    }
+
+    updateConnectionDrag(event) {
+        if (!this.tempConnection || !this.draggedConnection) return;
+
+        const fromPos = this.draggedConnection.fromPos;
+        const toPos = {
+            x: event.clientX - this.nodeSystem.container.getBoundingClientRect().left,
+            y: event.clientY - this.nodeSystem.container.getBoundingClientRect().top
+        };
+        
+        const path = this.createConnectionPath(fromPos, toPos);
+        this.tempConnection.setAttribute('d', path);
+    }
+
+    cancelConnectionDrag() {
+        if (this.tempConnection && this.tempConnection.parentNode) {
+            this.tempConnection.parentNode.removeChild(this.tempConnection);
+        }
+        this.draggedConnection = null;
+        this.tempConnection = null;
+    }
+
+    completeConnection(fromId, toId) {
+        // Create the connection in the node system
+        if (this.nodeSystem.connectionManager) {
+            this.nodeSystem.connectionManager.createConnection(fromId, toId);
+        }
+    }
+
+    getPortPosition(nodeId, portType) {
+        const node = document.getElementById(nodeId);
+        if (!node) return null;
+        
+        const port = node.querySelector(`.${portType}-port`);
+        if (!port) return null;
+
+        const rect = port.getBoundingClientRect();
+        const containerRect = this.nodeSystem.container.getBoundingClientRect();
+        
+        return {
+            x: rect.left + rect.width / 2 - containerRect.left,
+            y: rect.top + rect.height / 2 - containerRect.top
+        };
+    }
+
+    createConnectionPath(from, to) {
+        if (!from || !to) return '';
+        
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const curve = Math.min(Math.abs(dx) / 2, 100); // Control point offset
+
+        return `M ${from.x} ${from.y} 
+                C ${from.x + curve} ${from.y},
+                  ${to.x - curve} ${to.y},
+                  ${to.x} ${to.y}`;
+    }
+
+    // Helper method to initialize velocity for a node
+    initializeNodeVelocity(id) {
+        this.nodeVelocities.set(id, {
+            x: (Math.random() - 0.5) * 5,
+            y: (Math.random() - 0.5) * 5
+        });
+    }
+}
 
 export default NodeEventHandler; 

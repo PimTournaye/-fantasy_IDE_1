@@ -2,13 +2,229 @@ class ConnectionManager {
     constructor(nodeSystem) {
         this.nodeSystem = nodeSystem;
         this.connections = new Map();
-        this.svg = null;
+        this.draggedConnection = null;
+        this.tempConnection = null;
+        
+        // Create SVG element
+        this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        this.svg.classList.add('connections');
+        this.svg.style.position = 'absolute';
+        this.svg.style.top = '0';
+        this.svg.style.left = '0';
+        this.svg.style.width = '100%';
+        this.svg.style.height = '100%';
+        this.svg.style.pointerEvents = 'none';
+        this.svg.style.zIndex = '1';
+        this.nodeSystem.container.appendChild(this.svg); // Append to container instead of body
+        
+        // Track node movements
+        this.trackNodeMovements();
+        
+        console.log('ConnectionManager initialized');
     }
 
-    initializeSVG() {
-        this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        this.svg.id = 'connection-svg';
-        this.nodeSystem.container.appendChild(this.svg);
+    trackNodeMovements() {
+        let animationFrameId = null;
+        
+        const updateConnections = () => {
+            this.updateConnections();
+            animationFrameId = null;
+        };
+
+        // Listen for mousemove on container
+        this.nodeSystem.container.addEventListener('mousemove', () => {
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(updateConnections);
+            }
+        });
+
+        // Listen for mouseup
+        document.addEventListener('mouseup', () => {
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(updateConnections);
+            }
+        });
+
+        // Listen for transform changes
+        const observer = new MutationObserver(() => {
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(updateConnections);
+            }
+        });
+
+        observer.observe(this.nodeSystem.container, {
+            attributes: true,
+            attributeFilter: ['style', 'transform'],
+            subtree: true
+        });
+    }
+
+    createConnection(fromId, toId) {
+        console.log('createConnection called with:', fromId, toId);
+        if (!fromId || !toId) {
+            console.error('Invalid node IDs:', fromId, toId);
+            return;
+        }
+        this.connect(fromId, toId);
+    }
+
+    connect(fromId, toId) {
+        console.log('connect called with:', fromId, toId);
+        const connectionId = `${fromId}-${toId}`;
+        
+        if (this.connections.has(connectionId)) {
+            console.log('Connection already exists');
+            return;
+        }
+        
+        const fromNode = document.getElementById(fromId);
+        const toNode = document.getElementById(toId);
+        
+        if (!fromNode || !toNode) {
+            console.error('Nodes not found:', fromId, toId);
+            return;
+        }
+
+        const fromNodeData = this.nodeSystem.nodes.get(fromId);
+        const toNodeData = this.nodeSystem.nodes.get(toId);
+
+        if (!fromNodeData || !toNodeData) {
+            console.error('Node data not found');
+            return;
+        }
+
+        console.log('Creating connection between:', fromNodeData.type, 'and', toNodeData.type);
+
+        // Create the connection
+        this.connections.set(connectionId, { from: fromId, to: toId });
+        
+        // Handle webcam to WebGL connection
+        if (fromNodeData.type === 'webcam' && toNodeData.type === 'webgl') {
+            console.log('Setting up webcam to WebGL connection');
+            this.nodeSystem.shaderManager.updateShaderConnection(fromNode, toNode);
+        }
+        if (fromNodeData.type === 'hdmi' && toNodeData.type === 'webgl') {
+            console.log('Setting up webcam to WebGL connection');
+            this.nodeSystem.shaderManager.updateShaderConnection(fromNode, toNode);
+        }
+        // Draw the connection
+        this.drawConnection(fromId, toId);
+        console.log('Connection created and drawn');
+    }
+
+    drawConnection(fromId, toId) {
+        const fromNode = document.getElementById(fromId);
+        const toNode = document.getElementById(toId);
+
+        if (!fromNode || !toNode) return;
+
+        const fromPort = fromNode.querySelector('.output-port');
+        const toPort = toNode.querySelector('.input-port');
+
+        if (!fromPort || !toPort) return;
+
+        // Get positions relative to the container
+        const containerRect = this.nodeSystem.container.getBoundingClientRect();
+        const fromRect = fromPort.getBoundingClientRect();
+        const toRect = toPort.getBoundingClientRect();
+
+        const fromX = fromRect.left - containerRect.left + (fromRect.width / 2);
+        const fromY = fromRect.top - containerRect.top + (fromRect.height / 2);
+        const toX = toRect.left - containerRect.left + (toRect.width / 2);
+        const toY = toRect.top - containerRect.top + (toRect.height / 2);
+
+        // Create path
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        // Calculate bezier curve
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const curve = Math.min(Math.abs(dx) / 2, 100);
+        
+        const pathData = `M ${fromX},${fromY} 
+                         C ${fromX + curve},${fromY}
+                           ${toX - curve},${toY}
+                           ${toX},${toY}`;
+
+        // Set path attributes
+        path.setAttribute('d', pathData);
+        path.setAttribute('stroke', '#ffffff');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('fill', 'none');
+        path.id = `connection-${fromId}-${toId}`;
+
+        // Add to SVG
+        this.svg.appendChild(path);
+        console.log('Drew connection:', fromId, toId);
+    }
+
+    updateConnections() {
+        console.log('Updating all connections');
+        // Clear existing paths
+        while (this.svg.firstChild) {
+            this.svg.removeChild(this.svg.firstChild);
+        }
+
+        // Redraw all connections
+        this.connections.forEach((connection, connectionId) => {
+            const fromNode = document.getElementById(connection.from);
+            const toNode = document.getElementById(connection.to);
+            if (!fromNode || !toNode) return;
+
+            const fromPort = fromNode.querySelector('.output-port');
+            const toPort = toNode.querySelector('.input-port');
+            if (!fromPort || !toPort) return;
+
+            // Get positions relative to the container
+            const containerRect = this.nodeSystem.container.getBoundingClientRect();
+            const fromRect = fromPort.getBoundingClientRect();
+            const toRect = toPort.getBoundingClientRect();
+
+            const fromX = fromRect.left - containerRect.left + (fromRect.width / 2);
+            const fromY = fromRect.top - containerRect.top + (fromRect.height / 2);
+            const toX = toRect.left - containerRect.left + (toRect.width / 2);
+            const toY = toRect.top - containerRect.top + (toRect.height / 2);
+
+            // Create path
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // Calculate bezier curve
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const curve = Math.min(Math.abs(dx) / 2, 100);
+            
+            const pathData = `M ${fromX},${fromY} 
+                             C ${fromX + curve},${fromY}
+                               ${toX - curve},${toY}
+                               ${toX},${toY}`;
+
+            // Set path attributes
+            path.setAttribute('d', pathData);
+            path.setAttribute('stroke', '#ffffff');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.id = `connection-${connectionId}`;
+
+            // Add to SVG
+            this.svg.appendChild(path);
+        });
+    }
+
+    removeConnection(connectionId) {
+        if (this.connections.has(connectionId)) {
+            const connection = this.connections.get(connectionId);
+            this.connections.delete(connectionId);
+            
+            // Stop processing for JavaScript nodes
+            const fromNode = this.nodeSystem.nodes.get(connection.from);
+            const toNode = this.nodeSystem.nodes.get(connection.to);
+            if (fromNode && fromNode.type === 'webgl' && toNode && toNode.type === 'javascript') {
+                // Stop any ongoing processing
+                this.nodeSystem.stopNodeProcessing(connection.from, connection.to);
+            }
+            
+            this.updateConnections();
+        }
     }
 
     createConnectionPath(from, to) {
@@ -44,39 +260,42 @@ class ConnectionManager {
 
         const fromNode = document.getElementById(connection.from);
         const toNode = document.getElementById(connection.to);
-        if (!fromNode || !toNode) {
-            this.removeConnection(connectionId);
-            return;
-        }
+        if (!fromNode || !toNode) return;
 
         const fromPort = fromNode.querySelector('.output-port');
         const toPort = toNode.querySelector('.input-port');
-        if (!fromPort || !toPort) {
-            this.removeConnection(connectionId);
-            return;
-        }
+        if (!fromPort || !toPort) return;
 
-        const fromPos = this.getPortPosition(fromPort);
-        const toPos = this.getPortPosition(toPort);
-        
-        let path = this.svg.querySelector(`path[data-connection-id="${connectionId}"]`);
-        if (!path) {
-            path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('class', 'connection-line');
-            path.setAttribute('data-connection-id', connectionId);
-            this.svg.appendChild(path);
-        }
+        // Get the current positions of the nodes
+        const fromRect = fromPort.getBoundingClientRect();
+        const toRect = toPort.getBoundingClientRect();
+        const containerRect = this.nodeSystem.container.getBoundingClientRect();
 
-        const pathData = this.createConnectionPath(fromPos, toPos);
-        path.setAttribute('d', pathData);
-    }
+        // Calculate port positions relative to container
+        const from = {
+            x: fromRect.left + fromRect.width / 2 - containerRect.left,
+            y: fromRect.top + fromRect.height / 2 - containerRect.top
+        };
 
-    removeConnection(connectionId) {
-        const path = this.svg.querySelector(`path[data-connection-id="${connectionId}"]`);
-        if (path) {
-            path.remove();
-        }
-        this.connections.delete(connectionId);
+        const to = {
+            x: toRect.left + toRect.width / 2 - containerRect.left,
+            y: toRect.top + toRect.height / 2 - containerRect.top
+        };
+
+        // Create curved path
+        const dx = to.x - from.x;
+        const curve = Math.min(Math.abs(dx) / 2, 100);
+
+        const path = `M ${from.x} ${from.y} 
+                     C ${from.x + curve} ${from.y},
+                       ${to.x - curve} ${to.y},
+                       ${to.x} ${to.y}`;
+
+        // Update the SVG path
+        connection.element.setAttribute('d', path);
+
+        // Request animation frame for smooth updates during animation
+        requestAnimationFrame(() => this.updateConnection(connectionId));
     }
 
     getPortPosition(port) {
@@ -87,17 +306,6 @@ class ConnectionManager {
             x: rect.left + rect.width / 2 - containerRect.left,
             y: rect.top + rect.height / 2 - containerRect.top
         };
-    }
-
-    createConnection(fromNodeId, toNodeId) {
-        const connectionId = `connection-${Date.now()}`;
-        this.connections.set(connectionId, {
-            from: fromNodeId,
-            to: toNodeId
-        });
-
-        this.updateConnection(connectionId);
-        return connectionId;
     }
 
     removeConnectionsForNode(nodeId) {

@@ -365,9 +365,7 @@ vec3 dirToLook = vec3(0,1,1);
 
 
 
-
 `;
-
 const _fragmentShaderD = `
 
 #ifdef GL_ES
@@ -859,13 +857,6 @@ void main(void )
 
 const _fragmentShaderA = `
 
-
-
-
-
-
-
-
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -1105,8 +1096,7 @@ windowCoord.y = 1.0 - windowCoord.y;  // Flip Y coordinate
 vec4 windowColor = texture2D(u_window, windowCoord);
   
       vec4 previousColor = texture2D(u_prevFrame, 1.001*gl_FragCoord.xy / u_resolution);
-    gl_FragColor = mix(windowColor,previousColor,
-                      1.-ret);
+    gl_FragColor = ret;
 }
 
 
