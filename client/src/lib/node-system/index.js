@@ -2,7 +2,9 @@ import NodeEventHandler from './NodeEventHandler.js';
 import ShaderManager from './ShaderManager.js';
 import ConnectionManager from './ConnectionManager.js';
 import EditorManager from './EditorManager.js';
-
+import JavaScriptNodeManager from './JavaScriptNodeManager.js';
+import WebGPUManager from './WebGPUManager.js';
+///npx vite
 class NodeSystem {
     static #expandedNode = null;
 
@@ -27,9 +29,13 @@ class NodeSystem {
         this.connectionManager = new ConnectionManager(this);
         this.editorManager = new EditorManager(this);
         this.eventHandler = new NodeEventHandler(this);
+        this.javaScriptNodeManager = new JavaScriptNodeManager(this);
+        this.webgpuManager = new WebGPUManager(this);
         
         // Initialize system
         this.initializeSystem();
+
+        this.originalContainerBackground = null;
     }
 
     createToolbar() {
@@ -83,6 +89,11 @@ class NodeSystem {
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('webgl', randomX, randomY);
             }},
+            { text: 'Add WebGPU Node', onClick: () => {
+                const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
+                const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
+                this.createNode('webgpu', randomX, randomY);
+            }},
             { text: 'Add Webcam Node', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
@@ -93,9 +104,11 @@ class NodeSystem {
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('hdmi', randomX, randomY);
             }},
+            { text: 'Random Background', onClick: () => this.setRandomNodeAsBackground() },
             { text: 'Toggle Bounce', onClick: () => this.eventHandler.toggleBounce() },
             { text: 'Speed Up', onClick: () => this.eventHandler.speedUp() },
-            { text: 'Slow Down', onClick: () => this.eventHandler.slowDown() }
+            { text: 'Slow Down', onClick: () => this.eventHandler.slowDown() },
+            { text: 'CHAOS MODE', onClick: () => this.toggleChaos() }
         ];
 
         buttons.forEach(({ text, onClick }) => {
@@ -123,13 +136,18 @@ class NodeSystem {
         node.style.left = `${x}px`;
         node.style.top = `${y}px`;
 
-        node.innerHTML = this.getNodeTemplate(type);
+        // Get template based on type
+        node.innerHTML = type === 'javascript' ? 
+            this.javaScriptNodeManager.getNodeTemplate() : 
+            this.getNodeTemplate(type);
+
         this.container.appendChild(node);
 
+        let codeType = type === 'webgl' ? this.shaderManager.defaultShaderCode : '';
         const nodeData = {
             type,
             element: node,
-            code: type === 'webgl' ? this.shaderManager.defaultShaderCode : '',
+            code: codeType,
             data: {}
         };
 
@@ -139,64 +157,42 @@ class NodeSystem {
         // Initialize based on type
         switch(type) {
             case 'webgl':
-                console.log('Initializing WebGL for node:', id);
                 this.shaderManager.initializeWebGL(node);
                 break;
+            case 'webgpu':
+                this.webgpuManager.initializeWebGPU(node);
+                break;
             case 'javascript':
-                console.log('Initializing checkbox grid for node:', id);
-                this.initializeCheckboxGrid(nodeData);
+                this.javaScriptNodeManager.initializeJavaScript(node);
                 break;
             case 'webcam':
-                console.log('Initializing webcam for node:', id);
                 this.shaderManager.initializeWebcam(node);
                 break;
             case 'hdmi':
-                console.log('Initializing HDMI for node:', id);
                 this.shaderManager.initializeHDMI(node);
                 break;
-        }
-
-        // Add event listeners for the edit button
-        const editButton = node.querySelector('.expand-button');
-        if (editButton) {
-            editButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.editorManager.toggleEditor(id, type);
-            });
         }
 
         return node;
     }
 
     getNodeTemplate(type) {
-        if (type === 'javascript') {
-            // 32 checkboxes * 13px width = 416px total width
-            // 32 checkboxes * 15px height = 480px total height
-            return `
-                <div class="node-header">
-                    <span>JavaScript</span>
-                    <div class="header-buttons">
-                        <button class="expand-button">Edit</button>
-                    </div>
-                </div>
-                <div class="node-content">
-                    <div class="checkbox-grid" style="display: grid; grid-template-columns: repeat(32, 13px); width: 416px; height: 480px; gap: 0;"></div>
-                </div>
-                <div class="node-ports">
-                    <div class="input-port"></div>
-                    <div class="output-port"></div>
-                </div>
-            `;
-        } else if (type === 'webcam' || type === 'hdmi') {
+        if (type === 'webcam' || type === 'hdmi') {
             return `
                 <div class="node-header">
                     <span>${type.toUpperCase()}</span>
                     <div class="header-buttons">
                         <button class="expand-button">Edit</button>
+                        ${type === 'webcam' ? '<button class="device-select-button">📹</button>' : ''}
                     </div>
                 </div>
                 <div class="node-content">
-                    <video autoplay playsinline style="width: 320px; height: 240px;"></video>
+                    <video autoplay playsinline style="width: 320px; height: 240px; object-fit: cover;"></video>
+                    ${type === 'webcam' ? `
+                        <select class="device-select" style="display: none; position: absolute; top: 30px; right: 5px; z-index: 100;">
+                            <option value="">Loading devices...</option>
+                        </select>
+                    ` : ''}
                 </div>
                 <div class="node-ports">
                     <div class="output-port"></div>
@@ -241,8 +237,8 @@ class NodeSystem {
         const connectionId = `${fromId}-${toId}`;
         if (this.connections.has(connectionId)) return;
 
-        const fromNode = document.getElementById(fromId);
-        const toNode = document.getElementById(toId);
+        const fromNode = this.nodes.get(fromId);
+        const toNode = this.nodes.get(toId);
 
         // Only allow connections between valid nodes
         if (!fromNode || !toNode) return;
@@ -250,129 +246,15 @@ class NodeSystem {
         // Create the connection
         this.connect(fromId, toId);
 
-        // Get node data
-        const fromNodeData = this.nodes.get(fromId);
-        const toNodeData = this.nodes.get(toId);
-
         // Handle different connection types
-        if (fromNodeData.type === 'webgl' && toNodeData.type === 'javascript') {
-            this.connectShaderToCheckboxGrid(fromNodeData, toNodeData);
-        } else if (fromNodeData.type === 'webgl' && toNodeData.type === 'webgl') {
-            this.shaderManager.updateShaderConnection(fromNode, toNode);
+        if (fromNode.type === 'webgl' && toNode.type === 'javascript') {
+            this.javaScriptNodeManager.handleConnection(fromNode, toNode);
+        } else if (fromNode.type === 'webgl' && toNode.type === 'webgl') {
+            this.shaderManager.updateShaderConnection(
+                document.getElementById(fromId), 
+                document.getElementById(toId)
+            );
         }
-    }
-
-    connectShaderToCheckboxGrid(fromNode, toNode) {
-        const canvas = fromNode.element.querySelector('canvas');
-        const grid = toNode.element.querySelector('.checkbox-grid');
-        const checkboxes = grid.querySelectorAll('input[type="checkbox"]');
-        const size = Math.sqrt(checkboxes.length);
-
-        // Create temporary canvas for reading pixels
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = size;
-        tempCanvas.height = size;
-
-        // Update function to process shader output
-        const updateCheckboxes = () => {
-            // Draw WebGL canvas to temp canvas
-            tempCtx.drawImage(canvas, 0, 0, size, size);
-            
-            // Read pixel data
-            const imageData = tempCtx.getImageData(0, 0, size, size);
-            const pixels = imageData.data;
-
-            // Update checkboxes based on brightness
-            checkboxes.forEach((checkbox, i) => {
-                const pixelIndex = i * 4;
-                const brightness = (pixels[pixelIndex] + pixels[pixelIndex + 1] + pixels[pixelIndex + 2]) / 3;
-                checkbox.checked = brightness > 127;
-            });
-
-            // Continue animation
-            if (this.connections.has(`${fromNode.element.id}-${toNode.element.id}`)) {
-                requestAnimationFrame(updateCheckboxes);
-            }
-        };
-
-        // Start the update loop
-        updateCheckboxes();
-    }
-
-    initializeCheckboxGrid(nodeData) {
-        const grid = nodeData.element.querySelector('.checkbox-grid');
-        const size = 32;
-        
-        // Create checkboxes
-        for (let i = 0; i < size * size; i++) {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.style.width = '100%';
-            checkbox.style.height = '100%';
-            checkbox.style.margin = '0';
-            grid.appendChild(checkbox);
-        }
-        
-        grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-        nodeData.data = grid;
-    }
-
-    processNode(sourceNode) {
-        if (!sourceNode || !sourceNode.data) return;
-
-        // Find connected nodes
-        const connections = Array.from(this.connections.values())
-            .filter(conn => conn.from === sourceNode.element.id)
-            .map(conn => this.nodes.get(conn.to))
-            .filter(Boolean);
-
-        connections.forEach(targetNode => {
-            if (targetNode.type === 'javascript' && sourceNode.type === 'webgl') {
-                this.processCheckboxNode(sourceNode, targetNode);
-            }
-        });
-
-        // Continue processing in animation loop
-        requestAnimationFrame(() => this.processNode(sourceNode));
-    }
-
-    processCheckboxNode(webglNode, checkboxNode) {
-        const { gl, canvas } = webglNode.data;
-        const grid = checkboxNode.data;
-        const checkboxes = grid.querySelectorAll('input');
-
-        // Create a temporary canvas to read pixels from WebGL
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-
-        // Copy WebGL canvas to temp canvas
-        tempCtx.drawImage(canvas, 0, 0);
-        const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-        // Calculate step sizes to sample the image
-        const sampleWidth = Math.floor(canvas.width / 32);
-        const sampleHeight = Math.floor(canvas.height / 32);
-
-        checkboxes.forEach((checkbox, i) => {
-            const gridX = i % 32;
-            const gridY = Math.floor(i / 32);
-
-            // Sample from the center of each grid cell
-            const x = gridX * sampleWidth + Math.floor(sampleWidth / 2);
-            const y = gridY * sampleHeight + Math.floor(sampleHeight / 2);
-
-            // Get the pixel index in the image data array (RGBA format)
-            const pixelIndex = (y * canvas.width + x) * 4;
-
-            // Use the red channel since our WebGL shader outputs black/white
-            const brightness = imageData[pixelIndex];
-
-            // Update checkbox state - checked if dark, unchecked if bright
-            checkbox.checked = brightness < 128;
-        });
     }
 
     connect(fromId, toId) {
@@ -386,6 +268,194 @@ class NodeSystem {
         }
         
         this.updateConnections();
+    }
+
+    setRandomNodeAsBackground() {
+        // Get all WebGL, webcam, and HDMI nodes
+        const validNodes = Array.from(this.nodes.entries()).filter(([_, node]) => 
+            node.type === 'webgl' || node.type === 'webcam' || node.type === 'hdmi'
+        );
+
+        if (validNodes.length === 0) {
+            console.log('No valid nodes to set as background');
+            return;
+        }
+
+        // Store original background if not already stored
+        const container = document.getElementById('node-container');
+        if (!this.originalContainerBackground && container) {
+            this.originalContainerBackground = window.getComputedStyle(container).backgroundColor;
+            container.style.backgroundColor = 'transparent';
+        }
+
+        // Select a random node
+        const [nodeId, nodeData] = validNodes[Math.floor(Math.random() * validNodes.length)];
+        const node = document.getElementById(nodeId);
+
+        if (!node) return;
+
+        console.log('Setting background from node:', nodeData.type, nodeId);
+
+        // Remove previous background if it exists
+        const prevBackground = document.querySelector('.background-node');
+        if (prevBackground) {
+            prevBackground.remove();  // Actually remove the element
+            this.nodes.delete('background');
+        }
+
+        // Create background container with proper node structure
+        const background = document.createElement('div');
+        background.className = 'background-node';
+        background.id = 'background';
+
+        // Create node content div
+        const content = document.createElement('div');
+        content.className = 'node-content';
+        content.style.width = '100%';
+        content.style.height = '100%';
+        background.appendChild(content);
+
+        if (nodeData.type === 'webgl') {
+            // For WebGL nodes, create a new canvas
+            const canvas = document.createElement('canvas');
+            // Match the expanded node dimensions (window size minus 40px padding)
+            canvas.width = window.innerWidth - 40;
+            canvas.height = window.innerHeight - 40;
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.display = 'block';
+            // Center the canvas like in expanded mode
+            canvas.style.position = 'absolute';
+            canvas.style.top = '50%';
+            canvas.style.left = '50%';
+            canvas.style.transform = 'translate(-50%, -50%)';
+            content.appendChild(canvas);
+            
+            // Register the background as a node in the system
+            this.nodes.set('background', {
+                type: 'webgl',
+                element: background,
+                code: nodeData.code,
+                data: null
+            });
+            
+            // Initialize WebGL for the background
+            this.shaderManager.initializeWebGL(background);
+            
+            // Copy the shader code
+            if (nodeData.code) {
+                requestAnimationFrame(() => {
+                    this.shaderManager.updateShader('background', nodeData.code);
+                });
+            }
+        } else {
+            // For video nodes, clone the video element
+            const originalVideo = node.querySelector('video');
+            const newVideo = document.createElement('video');
+            newVideo.autoplay = true;
+            newVideo.playsinline = true;
+            newVideo.muted = true;
+            newVideo.srcObject = originalVideo.srcObject;
+            newVideo.style.width = '100%';
+            newVideo.style.height = '100%';
+            newVideo.style.objectFit = 'cover';
+            content.appendChild(newVideo);
+            
+            // Register the background as a node
+            this.nodes.set('background', {
+                type: nodeData.type,
+                element: background,
+                data: { video: newVideo, stream: originalVideo.srcObject }
+            });
+
+            // Ensure video plays
+            newVideo.play().catch(console.error);
+        }
+
+        // Style the background with matching padding
+        Object.assign(background.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '20px',
+            width: 'calc(100vw - 40px)',
+            height: 'calc(100vh - 40px)',
+            zIndex: '-1',
+            opacity: '1',
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            backgroundColor: 'transparent'
+        });
+
+        // Add to document
+        document.body.insertBefore(background, document.body.firstChild);
+
+        console.log(`Set node ${nodeId} as background, type: ${nodeData.type}`);
+    }
+    
+
+    resetBackground() {
+        const background = document.querySelector('.background-node');
+        if (background) {
+            background.remove();
+            this.nodes.delete('background');
+        }
+        
+        // Restore original container background
+        const container = document.getElementById('node-container');
+        if (this.originalContainerBackground && container) {
+            container.style.backgroundColor = this.originalContainerBackground;
+            this.originalContainerBackground = null;
+        }
+    }
+
+    toggleChaos() {
+        const container = document.getElementById('node-container');
+        container.classList.toggle('chaos-mode');
+        
+        // Add some extra chaos
+        if (container.classList.contains('chaos-mode')) {
+            // Only create angel if it doesn't exist yet
+           // if (!this.chaosAngel) {
+                const angelNode = document.createElement('div');
+                angelNode.className = 'node chaos-angel';
+                angelNode.style.position = 'absolute';
+                angelNode.style.left = `${Math.random() * (window.innerWidth - 400)}px`;
+                angelNode.style.top = `${Math.random() * (window.innerHeight - 400)}px`;
+                angelNode.style.zIndex = '9999';
+                
+                const img = document.createElement('img');
+                img.src = '/src/SwitchAngel_1_Transparent.png';
+                img.style.width = '200px';
+                img.style.height = 'auto';
+                // img.style.filter = 'hue-rotate(0deg)';
+                // img.style.animation = 'chaos-colors 2s infinite';
+                
+                angelNode.appendChild(img);
+                container.appendChild(angelNode);
+                
+                this.chaosAngel = angelNode;
+            //}
+            
+            // Randomize node positions
+            this.nodes.forEach((nodeData) => {
+                const node = nodeData.element;
+                node.style.transition = 'all 0.5s ease';
+                node.style.left = `${Math.random() * (window.innerWidth - 400)}px`;
+                node.style.top = `${Math.random() * (window.innerHeight - 300)}px`;
+            });
+
+            // Start random color changes for connections
+            this.connectionManager?.startChaosMode();
+        } else {
+            // Reset transitions
+            this.nodes.forEach((nodeData) => {
+                const node = nodeData.element;
+                node.style.transition = '';
+            });
+
+            // Stop chaos in connections
+            this.connectionManager?.stopChaosMode();
+        }
     }
 }
 

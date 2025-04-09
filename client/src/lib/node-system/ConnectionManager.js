@@ -4,6 +4,7 @@ class ConnectionManager {
         this.connections = new Map();
         this.draggedConnection = null;
         this.tempConnection = null;
+        this.chaosInterval = null;
         
         // Create SVG element
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -384,6 +385,33 @@ class ConnectionManager {
             this.connections.set(id, connection);
             this.updateConnection(id);
         });
+    }
+
+    startChaosMode() {
+        // Animate connection colors
+        this.chaosInterval = setInterval(() => {
+            const connections = document.querySelectorAll('.connection-line');
+            connections.forEach(connection => {
+                connection.style.stroke = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                connection.style.strokeWidth = `${Math.random() * 5 + 2}px`;
+                connection.style.filter = `blur(${Math.random() * 2}px) brightness(${Math.random() + 1})`;
+            });
+        }, 100);
+    }
+
+    stopChaosMode() {
+        if (this.chaosInterval) {
+            clearInterval(this.chaosInterval);
+            this.chaosInterval = null;
+            
+            // Reset connections to default style
+            const connections = document.querySelectorAll('.connection-line');
+            connections.forEach(connection => {
+                connection.style.stroke = '#ff69b4';
+                connection.style.strokeWidth = '3px';
+                connection.style.filter = 'none';
+            });
+        }
     }
 }
 

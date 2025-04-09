@@ -365,7 +365,6 @@ export class NodeEventHandler {
             
             this.nodeSystem.nodes.forEach((nodeData, id) => {
                 const node = nodeData.element;
-                // Initialize velocity if it doesn't exist
                 if (!this.nodeVelocities.has(id)) {
                     this.initializeNodeVelocity(id);
                 }
@@ -375,17 +374,37 @@ export class NodeEventHandler {
                 let newX = rect.left + velocity.x * this.animationSpeed;
                 let newY = rect.top + velocity.y * this.animationSpeed;
                 
-                // Bounce off walls
-                if (newX <= 0 || newX + rect.width >= window.innerWidth) {
-                    velocity.x *= -1;
-                    newX = Math.max(0, Math.min(newX, window.innerWidth - rect.width));
+                // Add dampening on bounce
+                const dampeningFactor = 0.85;
+                const minSpeed = 0.5;
+                const edgeBuffer = 20; // Buffer from edges to prevent sticking
+                
+                // Bounce off walls with dampening
+                if (newX <= edgeBuffer || newX + rect.width >= window.innerWidth - edgeBuffer) {
+                    velocity.x *= -dampeningFactor;
+                    // Ensure minimum speed and prevent sticking
+                    if (Math.abs(velocity.x) < minSpeed) {
+                        velocity.x = minSpeed * Math.sign(velocity.x);
+                    }
+                    newX = Math.max(edgeBuffer, Math.min(newX, window.innerWidth - rect.width - edgeBuffer));
                 }
                 
-                if (newY <= 0 || newY + rect.height >= window.innerHeight) {
-                    velocity.y *= -1;
-                    newY = Math.max(0, Math.min(newY, window.innerHeight - rect.height));
+                if (newY <= edgeBuffer || newY + rect.height >= window.innerHeight - edgeBuffer) {
+                    velocity.y *= -dampeningFactor;
+                    // Ensure minimum speed and prevent sticking
+                    if (Math.abs(velocity.y) < minSpeed) {
+                        velocity.y = minSpeed * Math.sign(velocity.y);
+                    }
+                    newY = Math.max(edgeBuffer, Math.min(newY, window.innerHeight - rect.height - edgeBuffer));
                 }
                 
+                // Add slight randomization to prevent synchronization
+                if (Math.random() < 0.01) {  // 1% chance per frame
+                    velocity.x += (Math.random() - 0.5) * 0.1;
+                    velocity.y += (Math.random() - 0.5) * 0.1;
+                }
+                
+                // Apply position
                 node.style.left = `${newX}px`;
                 node.style.top = `${newY}px`;
             });
@@ -488,9 +507,15 @@ export class NodeEventHandler {
 
     // Helper method to initialize velocity for a node
     initializeNodeVelocity(id) {
+        // Reduced initial velocity range and added minimum speed
+        const minSpeed = 0.5;
+        const maxSpeed = 2;
+        const angle = Math.random() * Math.PI * 2; // Random direction in radians
+        
+        // Use trigonometry to ensure consistent speed regardless of direction
         this.nodeVelocities.set(id, {
-            x: (Math.random() - 0.5) * 5,
-            y: (Math.random() - 0.5) * 5
+            x: Math.cos(angle) * (minSpeed + Math.random() * (maxSpeed - minSpeed)),
+            y: Math.sin(angle) * (minSpeed + Math.random() * (maxSpeed - minSpeed))
         });
     }
 }

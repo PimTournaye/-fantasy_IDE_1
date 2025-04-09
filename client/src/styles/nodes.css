@@ -7,7 +7,7 @@
   position: relative;
   width: 100%;
   height: 100vh;
-  background-color: #ffecf2;
+  background-color: #121212;
   overflow: hidden;
   font-family: 'Bianzhidai', monospace;
 }
@@ -28,29 +28,30 @@
   bottom: 20px;
   right: 20px;
   padding: 10px 20px;
-  background: #534caf;
+  background: #1e1e1e;
   color: white;
-  border: none;
+  border: 1px solid #ff69b4;
   border-radius: 8px;
   cursor: pointer;
   font-family: 'Bianzhidai', monospace;
   font-size: 16px;
   z-index: 1000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(255,105,180,0.2);
   transition: all 0.3s ease;
 }
 
 .add-webgl-button:hover {
   font-family: 'Bianzhidai', monospace;
-  background: #cd4be3;
+  background: #ff69b4;
+  color: #1e1e1e;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 8px rgba(255,105,180,0.4);
 }
 
 .add-webgl-button:active {
   font-family: 'Bianzhidai', monospace;
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(255,105,180,0.2);
 }
 
 .webgl-button {
@@ -59,20 +60,21 @@
   bottom: 20px;
   right: 20px;
   padding: 10px 20px;
-  background-color: #af4cac;
+  background-color: #1e1e1e;
   color: white;
-  border: none;
+  border: 1px solid #ff69b4;
   border-radius: 4px;
   cursor: pointer;
   z-index: 1000;
 }
 
 .webgl-button:hover {
-  background-color: #a0459d;
+  background-color: #ff69b4;
+  color: #1e1e1e;
 }
 
 #editor.visible {
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0,0,0, 0.95);
 }
 
 .compile-button {
@@ -80,16 +82,17 @@
   bottom: 10px;
   right: 10px;
   padding: 8px 16px;
-  background-color: #964caf;
+  background-color: #1e1e1e;
   color: white;
-  border: none;
+  border: 1px solid #ff69b4;
   border-radius: 4px;
   cursor: pointer;
   font-family: 'Bianzhidai', monospace;
 }
 
 .compile-button:hover {
-  background-color: hsl(250, 40%, 45%);
+  background-color: #ff69b4;
+  color: #1e1e1e;
   font-family: 'Bianzhidai', monospace;
 }
 
@@ -99,27 +102,28 @@
   height: 100% !important;
   font-family: monospace;
   font-size: 14px;
-  background: linear-gradient(0.25turn,#F2610100,#c1c1c1,#F2610100, #F2610100), rgba(0,0,0,0.2) !important;
+  background: linear-gradient(0.25turn,#ff69b400,#ff69b422,#ff69b400, #ff69b400), rgba(0,0,0,0.8) !important;
 }
 
 .CodeMirror-gutters {
-  border-right: 1px solid #000;
-  background-color: #00000000 !important;
+  border-right: 1px solid #ff69b4;
+  background-color: #1e1e1e !important;
 }
 
 .CodeMirror-present {
   background-color: rgba(255, 255, 255, 0.0) !important;
-  text-shadow: 1px 1px #555555;
-  caret-color: red !important;
+  text-shadow: 0 0 8px #ff69b4;
+  caret-color: #ff69b4 !important;
 }
 
 .node {
   transition: all 0.3s ease-out;
   z-index: 1;
   position: absolute;
-  background: white;
+  background: #1e1e1e;
+  border: 1px solid #ff69b4;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(255,105,180,0.2);
   user-select: none;
   font-family: 'Bianzhidai', monospace;
   width: fit-content;
@@ -137,6 +141,7 @@
   height: 240px;
   object-fit: cover;
   border-radius: 4px;
+  border: 1px solid #ff69b4;
 }
 
 /* Remove fixed widths and let content determine size */
@@ -146,7 +151,8 @@
 }
 
 .node-header {
-  background: #f0f0f0;
+  background: #1e1e1e;
+  color: #ff69b4;
   padding: 8px 12px;
   border-radius: 12px 12px 0 0;
   cursor: move;
@@ -154,6 +160,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid #ff69b4;
 }
 
 .code-editor {
@@ -172,8 +179,9 @@
   display: flex;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #f8f8f8;
+  background: #1e1e1e;
   border-radius: 0 0 12px 12px;
+  border-top: 1px solid #ff69b4;
 }
 
 .input-port,
@@ -182,14 +190,16 @@
   position: relative;
   width: 12px;
   height: 12px;
-  background: #666;
+  background: #ff69b4;
   border-radius: 50%;
   cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .input-port:hover,
 .output-port:hover {
-  background: #333;
+  background: #ff8dc7;
+  box-shadow: 0 0 8px #ff69b4;
 }
 
 .checkbox-grid {
@@ -198,7 +208,7 @@
   gap: 2px;
   width: 100%;
   padding: 8px;
-  background: #f5f5f5;
+  background: #1e1e1e;
   border-radius: 4px;
   height: auto;
   min-height: 480px;
@@ -209,6 +219,7 @@
   height: 12px;
   margin: 0;
   cursor: pointer;
+  accent-color: #ff69b4;
 }
 
 #connections {
@@ -225,23 +236,25 @@
 .connection-line {
   pointer-events: none;
   fill: none;
-  stroke: #666;
+  stroke: #ff69b4;
   stroke-width: 3;
 }
 
 .expand-button {
-  background: #fff;
-  border: 1px solid #ddd;
+  background: #1e1e1e;
+  border: 1px solid #ff69b4;
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
   font-family: 'Bianzhidai', monospace;
   font-size: 12px;
   z-index: 102;
+  color: #ffffff;
 }
 
 .expand-button:hover {
-  background: #eee;
+  background: #ff69b4;
+  color: #1e1e1e;
 }
 
 .header-buttons {
@@ -256,7 +269,7 @@
   width: calc(100vw - 40px) !important;
   height: calc(100vh - 40px) !important;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(30, 30, 30, 0.95);
 }
 
 .node.expanded .node-content {
@@ -303,44 +316,168 @@
   pointer-events: none;
 }
 
-.bounce-button {
-  font-family: 'Bianzhidai', monospace;
-  position: fixed;
-  bottom: 140px;
-  right: 20px;
-  padding: 10px 20px;
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.speed-up-button {
-  font-family: 'Bianzhidai', monospace;
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  padding: 10px 20px;
-  background-color: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
+.bounce-button,
+.speed-up-button,
 .slow-down-button {
   font-family: 'Bianzhidai', monospace;
   position: fixed;
-  bottom: 60px;
-  right: 20px;
   padding: 10px 20px;
-  background-color: #2196f3;
+  right: 20px;
   color: white;
-  border: none;
+  border: 1px solid #ff69b4;
   border-radius: 4px;
   cursor: pointer;
   z-index: 1000;
+  background-color: #1e1e1e;
+  transition: all 0.3s ease;
+}
+
+.bounce-button:hover,
+.speed-up-button:hover,
+.slow-down-button:hover {
+  background-color: #ff69b4;
+  color: #1e1e1e;
+}
+
+.bounce-button { bottom: 140px; }
+.speed-up-button { bottom: 100px; }
+.slow-down-button { bottom: 60px; }
+
+.device-select-button {
+  background: #1e1e1e;
+  border: 1px solid #ff69b4;
+  color: white;
+  cursor: pointer;
+  padding: 2px 5px;
+  margin-left: 5px;
+  font-size: 14px;
+}
+
+.device-select-button:hover {
+  background: #ff69b4;
+  color: #1e1e1e;
+}
+
+.device-select {
+  background: #1e1e1e;
+  color: white;
+  border: 1px solid #ff69b4;
+  border-radius: 4px;
+  padding: 5px;
+  width: 200px;
+}
+
+.device-select option {
+  padding: 5px;
+  background: #1e1e1e;
+}
+
+.background-node {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  background-color: transparent;
+}
+
+.background-node canvas,
+.background-node video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+}
+
+/* Add these chaos animations */
+@keyframes chaos-rotate {
+    0% { transform: rotate(calc(var(--chaos-time) * 360deg)) scale(1); }
+    25% { transform: rotate(calc(180deg + var(--chaos-time) * 360deg)) scale(0.5); }
+    50% { transform: rotate(calc(-90deg + var(--chaos-time) * 360deg)) scale(1.5); }
+    75% { transform: rotate(calc(360deg + var(--chaos-time) * 360deg)) scale(0.8); }
+    100% { transform: rotate(calc(var(--chaos-time) * 360deg)) scale(1); }
+}
+
+@keyframes chaos-colors {
+    0% { filter: hue-rotate(0deg) contrast(200%) brightness(150%); }
+    33% { filter: hue-rotate(120deg) contrast(300%) brightness(50%); }
+    66% { filter: hue-rotate(240deg) contrast(150%) brightness(200%); }
+    100% { filter: hue-rotate(360deg) contrast(200%) brightness(150%); }
+}
+
+@keyframes chaos-shake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(20px, -20px); }
+    50% { transform: translate(-20px, 20px); }
+    75% { transform: translate(20px, 20px); }
+}
+
+/* Chaos mode classes */
+.chaos-mode {
+    animation: update-chaos-time 10s linear infinite;
+}
+
+@keyframes update-chaos-time {
+    from {
+        --chaos-time: 0;
+    }
+    to {
+        --chaos-time: 1;
+    }
+}
+
+.chaos-mode .node {
+    animation:  infinite, chaos-shake 0.5s infinite !important;
+    transition: all 0.3s ease !important;
+    z-index: 9999 !important;
+}
+
+.chaos-mode .node-content {
+    animation: chaos-colors 2s infinite !important;
+}
+
+.chaos-mode .node-header {
+    background: linear-gradient(45deg, #ff0000, #00ff00, #0000ff) !important;
+    background-size: 600% 600% !important;
+    animation: chaos-colors 3s infinite !important;
+}
+
+.chaos-mode canvas {
+    mix-blend-mode: difference !important;
+}
+
+
+.chaos-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: linear-gradient(45deg, #ff0000, #ff00ff);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Bianzhidai', monospace;
+    font-size: 16px;
+    z-index: 10000;
+    animation: chaos-colors 3s infinite;
+    transition: all 0.3s ease;
+}
+
+.chaos-button:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.chaos-angel {
+    pointer-events: none;
+    animation: chaos-rotate 3s infinite, chaos-float 4s infinite ease-in-out !important;
+}
+
+@keyframes chaos-float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-30px); }
 }

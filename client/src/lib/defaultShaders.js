@@ -1,9 +1,36 @@
+const _fragmentShaderE = `
+precision mediump float;
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec4 u_spectrum;  // Audio spectrum bands
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution;
+    
+    // Create a grid of 8x8 cells for spectrum visualization
+    vec2 grid = floor(uv * 8.0);
+    float spectrumValue = u_spectrum.x;
+    
+    // Create a pulsing background
+    vec3 color = 0.5 + 0.5 * cos(u_time + uv.xyx + vec3(0, 2, 4));
+    
+    // Add spectrum visualization
+    float intensity = spectrumValue * 2.0;  // Amplify the effect
+    color += vec3(1.0, 0.3, 0.7) * intensity;  // Add pink glow based on spectrum
+    
+    // Add some movement based on spectrum
+    float wave = sin(uv.x * 10.0 + u_time) * 0.5 + 0.5;
+    color += vec3(0.2, 0.0, 0.1) * wave * spectrumValue;
+    
+    gl_FragColor = vec4(color, 1.0);
+}`
+
 const _fragmentShaderC = `
 
 #ifdef GL_ES
 precision mediump float;
 #endif
-
+uniform vec4 u_spectrum;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_vol;
@@ -367,42 +394,51 @@ vec3 dirToLook = vec3(0,1,1);
 
 `;
 const _fragmentShaderD = `
-
 #ifdef GL_ES
 precision mediump float;
 #endif
 
 uniform vec2 u_resolution;
-uniform vec2 u_mouse;
 uniform float u_time;
-uniform vec4 u_camRot;
-uniform vec4 u_camQuat;
-uniform vec3 u_camPos;
-uniform float u_vol;
+uniform vec4 u_spectrum;  // Audio spectrum bands
 uniform float drop;
-uniform sampler2D u_feed;
-uniform float midi;
 
- 
-void main(void)
-{
-  
-  vec2 v_texcoord = gl_FragCoord.xy/u_resolution;
-    vec2 fragCoord = gl_FragCoord.xy;
+void main(void) {
+    vec2 v_texcoord = gl_FragCoord.xy/u_resolution;
     vec2 normCenterSmooth = (v_texcoord-0.5) * 2.;
-   
-    float angle = atan(normCenterSmooth.x,normCenterSmooth.y);
-  
-    gl_FragColor = vec4(0,1,0,1);
+    
+    // Split spectrum into frequency bands
+    float bass = u_spectrum.x;
+    float lowMid = u_spectrum.y;
+    float highMid = u_spectrum.z;
+    float treble = u_spectrum.w;
+    
+    // Create circular waves based on audio
+    float dist = length(normCenterSmooth);
+    float angle = atan(normCenterSmooth.x, normCenterSmooth.y);
+    
+    // Modulate the base color with bass
+    vec3 color = 0.5 + 0.5 * cos(u_time + angle + vec3(0, 2, 4));
+    color *= 1.0 + bass;
+    
+    // Add expanding rings modulated by mids
+    float rings = sin(dist * 10.0 - u_time * 2.0) * (lowMid + highMid);
+    color += vec3(1.0, 0.3, 0.7) * rings * 0.5;
+    
+    // Add sparkles based on treble
+    float sparkles = sin(angle * 20.0 + u_time) * sin(dist * 15.0);
+    color += vec3(1.0, 0.8, 0.9) * treble * sparkles * 0.3;
+    
+    gl_FragColor = vec4(color, 1.0);
 }
 
 `;
-const _fragmentShaderE = `
+const _fragmentShaderF = `
 
 #ifdef GL_ES
 precision mediump float;
 #endif
-
+uniform vec4 u_spectrum;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform float u_time;
@@ -1131,6 +1167,45 @@ vec4 windowColor = texture2D(u_window, windowCoord);
 
 `
 
+
+const _fragmentShaderG = `     precision mediump float;
+            
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            uniform vec2 u_mouse;
+            uniform sampler2D u_prevFrame;
+            uniform vec4 u_spectrum;
+
+            void main() {
+                vec2 uv = gl_FragCoord.xy / u_resolution;
+                vec2 uvp = gl_FragCoord.xy / u_resolution;
+                                uv -= 0.5;
+                uv*=2.;
+                // Make mouse effect more visible
+                float mouseDist = distance(uvp, u_mouse);
+                float mouseGlow = 0.1 / mouseDist;
+                
+                // Get previous frame
+                vec4 prevColor = texture2D(u_prevFrame, uvp * (1.+(uv)*0.1));
+
+                
+                // Create base color with time animation
+                vec3 color = vec3(
+                   sin(length(uv)+u_time)*0.5
+                );
+                
+                // Add mouse interaction
+                color += vec3(mouseGlow * 0.5);
+                
+                // Mix with previous frame for trail effect
+                color = mix(color, prevColor.rgb, sin(mouseGlow + 2.*u_time));
+                
+                // Add audio reactive elements
+                color += u_spectrum.xyz * 0.1;
+                
+                gl_FragColor = vec4(color.rrr, 1.0);
+            }`
+
 const _vertexShaderC = `
 attribute vec2 aVertexPosition;
 
@@ -1146,4 +1221,6 @@ export const fragmentShaders = [
     _fragmentShaderC,
     _fragmentShaderD,
     _fragmentShaderE,
+    _fragmentShaderF,
+    _fragmentShaderG
 ];

@@ -11,9 +11,10 @@
 
 body {
   font-family: "Bianzhidai", "Helvetica Neue", helvetica, arial, sans-serif;
-  background-color : black;
+  background-color: #121212;
+  color: #ffffff;
   overflow: hidden;
-  caret-color: red;
+  caret-color: #ff69b4;
 }
 
 h1,
@@ -23,23 +24,24 @@ h3 {
 }
 
 h1 {
-  color: #d0ff37;
+  color: #ff69b4;
 }
 
 h2 {
-  color: #dbfa6b;
+  color: #ff8dc7;
   margin: auto;
   width: 50%;
 }
 
 h3 {
-  color: #d9fdaa;
+  color: #ffb3d9;
   margin: auto;
   width: 50%;
 }
 
 a {
   overflow-wrap: break-word;
+  color: #ff69b4;
 }
 
 input {
@@ -47,26 +49,32 @@ input {
   display: block;
   margin: 0 auto 10px;
   padding: 5px;
-  border: 1px solid lightgrey;
+  border: 1px solid #ff69b4;
   border-radius: 3px;
   font-size: 16px;
+  background-color: #1e1e1e;
+  color: #ffffff;
 }
 
 button {
   font-size: 16px;
   border-radius: 3px;
-  background-color: lightgrey;
-  border: 1px solid grey;
-  box-shadow: 2px 2px rgb(255, 145, 0);
+  background-color: #1e1e1e;
+  border: 1px solid #ff69b4;
+  box-shadow: 2px 2px #ff69b4;
   cursor: pointer;
+  color: #ffffff;
+  transition: all 0.3s ease;
 }
 
 button:hover {
-  background-color: yellow;
+  background-color: #ff69b4;
+  color: #1e1e1e;
 }
 
 button:active {
   box-shadow: none;
+  transform: translateY(2px);
 }
 
 /* ====================================
@@ -88,12 +96,13 @@ button:active {
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 1px solid #7e7e7e;
+  border: 1px solid #ff69b4;
   border-radius: 50px;
+  background-color: #1e1e1e;
 }
 
 ::-webkit-scrollbar-track {
-  border: 0 none #000000;
+  background: #121212;
   border-radius: 53px;
 }
 
@@ -139,9 +148,11 @@ button:active {
   height: 100%;
   z-index: 100;
   transition: z-index 0s;
+  background-color: rgba(30, 30, 30, 0.95);
 }
 #editor.visible {
   z-index: 1000;
+  background-color: rgba(30, 30, 30, 0.95);
 }
 #canvas-container {
   position: absolute;
@@ -173,29 +184,28 @@ button:active {
   height: 100% !important; 
   overflow: hidden !important;
   position: absolute !important;
-  /* background-color: rgba(0,0,0,.5) !important; */
-  background: linear-gradient( 0.25turn,#F2610100,#c1c1c1 ,#F2610100, #F2610100), rgba(0,0,0,0.2) !important;
-  scrollbar-color: rgba(0.5,0.5,0.5,1.0) rgba(0.5,0.5,0.5,.0); /* Mozilla styles */
+  background: linear-gradient(0.25turn, #ff69b400, #ff69b422, #ff69b400, #ff69b400), rgba(0,0,0,0.8) !important;
+  scrollbar-color: #ff69b4 #121212;
+  color: #ffffff;
 }
 
 .CodeMirror-present {
   background-color: rgba(255, 255, 255, 0.0) !important;
-  text-shadow: 1px 1px #555555;
-  caret-color: red !important;
+  text-shadow: 0 0 8px #ff69b4;
+  caret-color: #ff69b4 !important;
   position: absolute;
   top: 0;
   left: 0;
 }
 
 .CodeMirror-editor {
-  /* ToDo: Change bg color in CodeMirror directly or leave it here? */
-  background-color: #c5c5c522;
+  background-color: #1e1e1e;
 }
 
 .remote-caret {
   position: relative;
-  border-left: 1px solid black;
-  border-right: 1px solid black;
+  border-left: 1px solid #ff69b4;
+  border-right: 1px solid #ff69b4;
   margin-left: -1px;
   margin-right: -1px;
   box-sizing: border-box;
@@ -206,13 +216,13 @@ button:active {
   top: -1.05em;
   left: -1px;
   font-size: .6em;
-  background-color: rgb(250, 129, 0);
+  background-color: #ff69b4;
   font-family: serif;
   font-style: normal;
   font-weight: normal;
   line-height: normal;
   user-select: none;
-  color: white;
+  color: #1e1e1e;
   padding-left: 2px;
   padding-right: 2px;
   z-index: 3;
@@ -234,18 +244,18 @@ button:active {
 }
 
 .CodeMirror-gutters {
-  border-right: 1px solid #000;
-  background-color: #00000000 !important;
+  border-right: 1px solid #ff69b4;
+  background-color: #1e1e1e !important;
 }
 
 .CodeMirror-present.cm-s-default .cm-comment {
-  color: rgb(255, 255, 255);
+  color: #ff69b4;
   mix-blend-mode: difference;
-  text-shadow: 0 0 5px black, 0 0 15px black;
+  text-shadow: 0 0 5px #000000, 0 0 15px #000000;
 }
 
 .CodeMirror-present span[role=presentation] { 
-  background-color: rgba(255, 255, 255, 0.69); 
+  background-color: rgba(255, 105, 180, 0.1); 
 }
 
 span.cm-tab[role=presentation] { 

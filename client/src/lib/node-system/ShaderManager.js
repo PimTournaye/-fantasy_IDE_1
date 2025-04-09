@@ -3,10 +3,42 @@ import { fragmentShaders } from '../defaultShaders.js';
 class ShaderManager {
     constructor(nodeSystem) {
         this.nodeSystem = nodeSystem;
-        this.defaultShaderCode = fragmentShaders[3];
+        //random shader
+        this.defaultShaderCode = fragmentShaders[Math.floor(Math.random() * fragmentShaders.length)];
+        this.initAudio();
+        
+        // Add mouse tracking with initial values
+        this.mouseX = window.innerWidth / 2;
+        this.mouseY = window.innerHeight / 2;
+        
+        // Update mouse position with proper bounds checking
+        document.addEventListener('mousemove', (e) => {
+            this.mouseX = Math.max(0, Math.min(window.innerWidth, e.clientX));
+            this.mouseY = Math.max(0, Math.min(window.innerHeight, e.clientY));
+        });
     }
 
+    initAudio() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.analyzer = this.audioContext.createAnalyser();
+            this.analyzer.fftSize = 128; // This will give us 64 data points
+            
+            // Create audio input
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    source.connect(this.analyzer);
+                    console.log('Audio analyzer initialized');
+                })
+                .catch(err => console.error('Error accessing microphone:', err));
+        } catch (err) {
+            console.error('Error initializing audio context:', err);
+        }
+    }
     initializeWebGL(node) {
+        this.defaultShaderCode = fragmentShaders[Math.floor(Math.random() * fragmentShaders.length)];
+
         console.log('Initializing WebGL for node:', node.id);
         const content = node.querySelector('.node-content');
         const canvas = content.querySelector('canvas');
@@ -36,8 +68,8 @@ class ShaderManager {
 
         // Add click handler for expanding
         node.addEventListener('click', (e) => {
-            // Don't trigger on edit button click
-            if (e.target.closest('.edit-button')) return;
+            // Don't trigger on edit button or header buttons click
+            if (e.target.closest('.header-buttons')) return;
             
             const isExpanded = node.classList.contains('expanded');
             if (!isExpanded) {
@@ -51,6 +83,15 @@ class ShaderManager {
                 this.resizeCanvas(node.id, 320, 240);
             }
         });
+
+        // Add specific handler for edit button
+        const editButton = node.querySelector('.expand-button');
+        if (editButton) {
+            editButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent node expansion
+                this.nodeSystem.editorManager.toggleEditor(node.id, 'webgl');
+            });
+        }
 
         // Create initial program
         const program = this.createShaderProgram(gl, this.defaultShaderCode);
@@ -71,6 +112,31 @@ class ShaderManager {
         const timeLocation = gl.getUniformLocation(program, 'u_time');
         const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
 
+        // Create framebuffers for ping-pong rendering
+        const fb1 = gl.createFramebuffer();
+        const tex1 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb1);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex1, 0);
+
+        const fb2 = gl.createFramebuffer();
+        const tex2 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex2);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb2);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex2, 0);
+
+        // Get uniform locations
+        const prevFrameLocation = gl.getUniformLocation(program, 'u_prevFrame');
+        const mouseLocation = gl.getUniformLocation(program, 'u_mouse');
+        
         // Store WebGL context and program
         nodeData.data = {
             gl,
@@ -80,7 +146,15 @@ class ShaderManager {
             timeLocation,
             resolutionLocation,
             startTime: performance.now(),
-            connectedNodes: new Set()  // Add this to track connections
+            connectedNodes: new Set(),  // Add this to track connections
+            framebuffers: { fb1, fb2 },
+            textures: { tex1, tex2 },
+            currentFb: fb1,
+            currentTex: tex1,
+            prevFb: fb2,
+            prevTex: tex2,
+            prevFrameLocation,
+            mouseLocation
         };
         nodeData.code = this.defaultShaderCode;
 
@@ -90,17 +164,57 @@ class ShaderManager {
         gl.enableVertexAttribArray(positionLocation);
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-        // Start render loop
+        // Add spectrum uniform
+        const spectrumLocation = gl.getUniformLocation(program, 'u_spectrum');
+        nodeData.uniforms = {
+            ...nodeData.uniforms,
+            u_spectrum: spectrumLocation
+        };
+
+        // Modify render loop
         const render = () => {
             if (!nodeData.data || !nodeData.data.program) return;
 
+            // Swap framebuffers
+            const temp = nodeData.data.currentFb;
+            nodeData.data.currentFb = nodeData.data.prevFb;
+            nodeData.data.prevFb = temp;
+            const tempTex = nodeData.data.currentTex;
+            nodeData.data.currentTex = nodeData.data.prevTex;
+            nodeData.data.prevTex = tempTex;
+
+            // First pass: render to framebuffer
+            gl.bindFramebuffer(gl.FRAMEBUFFER, nodeData.data.currentFb);
             gl.viewport(0, 0, canvas.width, canvas.height);
             gl.useProgram(nodeData.data.program);
 
+            // Set up vertex attributes
             gl.bindBuffer(gl.ARRAY_BUFFER, nodeData.data.positionBuffer);
             gl.enableVertexAttribArray(nodeData.data.positionLocation);
             gl.vertexAttribPointer(nodeData.data.positionLocation, 2, gl.FLOAT, false, 0, 0);
 
+            // Bind previous frame texture
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, nodeData.data.prevTex);
+            if (nodeData.data.prevFrameLocation !== null) {
+                gl.uniform1i(nodeData.data.prevFrameLocation, 0);
+            }
+
+            // Update mouse uniform with proper scaling and offset
+            if (nodeData.data.mouseLocation !== null) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (this.mouseX - rect.left) / rect.width;
+                const mouseY = 1.0 - (this.mouseY - rect.top) / rect.height;
+                
+                // Clamp values between 0 and 1
+                const clampedX = Math.max(0, Math.min(1, mouseX));
+                const clampedY = Math.max(0, Math.min(1, mouseY));
+                
+                gl.uniform2f(nodeData.data.mouseLocation, clampedX, clampedY);
+                console.log('Mouse position:', clampedX, clampedY); // Debug output
+            }
+
+            // Update other uniforms
             if (nodeData.data.timeLocation !== null) {
                 const time = (performance.now() - nodeData.data.startTime) / 1000;
                 gl.uniform1f(nodeData.data.timeLocation, time);
@@ -109,6 +223,30 @@ class ShaderManager {
                 gl.uniform2f(nodeData.data.resolutionLocation, canvas.width, canvas.height);
             }
 
+            // Update spectrum data if available
+            if (nodeData.uniforms && nodeData.uniforms.u_spectrum && this.analyzer) {
+                const dataArray = new Uint8Array(this.analyzer.frequencyBinCount);
+                this.analyzer.getByteFrequencyData(dataArray);
+                
+                const bass = this.getAverageVolume(dataArray, 0, 4);
+                const lowMid = this.getAverageVolume(dataArray, 4, 10);
+                const highMid = this.getAverageVolume(dataArray, 10, 20);
+                const treble = this.getAverageVolume(dataArray, 20, 64);
+                
+                gl.uniform4f(nodeData.uniforms.u_spectrum, bass, lowMid, highMid, treble);
+            }
+
+            // Draw to framebuffer
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            // Second pass: render to screen
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.useProgram(nodeData.data.program);
+            
+            // Use the result from the first pass
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, nodeData.data.currentTex);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // Check for connected nodes after each render
@@ -129,14 +267,37 @@ class ShaderManager {
         render();
     }
 
+    // Helper function to calculate average volume for a frequency range
+    getAverageVolume(dataArray, startIndex, endIndex) {
+        let sum = 0;
+        for (let i = startIndex; i < endIndex; i++) {
+            sum += dataArray[i];
+        }
+        return (sum / (endIndex - startIndex)) / 255.0;
+    }
+
     resizeCanvas(nodeId, width, height) {
         const nodeData = this.nodeSystem.nodes.get(nodeId);
         if (!nodeData || !nodeData.data || !nodeData.data.gl) return;
 
-        const canvas = nodeData.data.gl.canvas;
+        const gl = nodeData.data.gl;
+        const canvas = gl.canvas;
         canvas.width = width;
         canvas.height = height;
-        nodeData.data.gl.viewport(0, 0, width, height);
+        gl.viewport(0, 0, width, height);
+
+        // Resize framebuffer textures
+        const { tex1, tex2 } = nodeData.data.textures;
+        
+        // Resize texture 1
+        gl.bindTexture(gl.TEXTURE_2D, tex1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        
+        // Resize texture 2
+        gl.bindTexture(gl.TEXTURE_2D, tex2);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        console.log('Resized canvas and framebuffers to:', width, height);
     }
 
     createShaderProgram(gl, shaderCode) {
@@ -180,6 +341,13 @@ class ShaderManager {
         gl.deleteShader(vertexShader);
         gl.deleteShader(fragmentShader);
 
+        // Initialize uniforms
+        gl.useProgram(program);
+        const mouseLocation = gl.getUniformLocation(program, 'u_mouse');
+        if (mouseLocation) {
+            gl.uniform2f(mouseLocation, 0.5, 0.5); // Set initial mouse position to center
+        }
+
         return program;
     }
 
@@ -205,6 +373,8 @@ class ShaderManager {
         const positionLocation = gl.getAttribLocation(newProgram, 'position');
         const timeLocation = gl.getUniformLocation(newProgram, 'u_time');
         const resolutionLocation = gl.getUniformLocation(newProgram, 'u_resolution');
+        const mouseLocation = gl.getUniformLocation(newProgram, 'u_mouse');
+        const prevFrameLocation = gl.getUniformLocation(newProgram, 'u_prevFrame');
         const webcamLocation = gl.getUniformLocation(newProgram, 'u_webcam');
 
         // Only after successful creation, update the node data
@@ -213,6 +383,8 @@ class ShaderManager {
         nodeData.data.positionLocation = positionLocation;
         nodeData.data.timeLocation = timeLocation;
         nodeData.data.resolutionLocation = resolutionLocation;
+        nodeData.data.mouseLocation = mouseLocation;
+        nodeData.data.prevFrameLocation = prevFrameLocation;
         
         // Preserve webcam connection if it exists
         if (webcamLocation !== null) {
@@ -258,12 +430,13 @@ class ShaderManager {
 
         if (fromNodeData.type === 'webcam' && toNodeData.type === 'webgl') {
             const gl = toNodeData.data.gl;
-            const video = fromNodeData.data.video;
+            // For webcam nodes, get video element directly from DOM
+            const video = fromNode.querySelector('video');
             
-            // First, let's verify we have a valid video element
-            console.log('Video element:', video);
-            console.log('Video ready state:', video.readyState);
-            console.log('Video dimensions:', video.videoWidth, video.videoHeight);
+            if (!video) {
+                console.error('No video element found in webcam node');
+                return;
+            }
 
             // Create and setup texture
             const texture = gl.createTexture();
@@ -281,7 +454,7 @@ class ShaderManager {
                     shaderCode.indexOf(';', uniformIndex) + 1 : 
                     shaderCode.indexOf('void main()');
                 
-                const webcamUniform = '\nuniform sampler2D u_webcam;\n// vec4 s = texture2D(u_webcam, normCoord);';
+                const webcamUniform = '\nuniform sampler2D u_webcam;\n// vec4 s = texture2D(u_webcam,  vec2(gl_FragCoord.x/u_resolution.x,1.-(gl_FragCoord.y/u_resolution.y) * (u_resolution.x/u_resolution.y)));';
                 shaderCode = shaderCode.slice(0, insertPosition) + 
                            webcamUniform +
                            shaderCode.slice(insertPosition);
@@ -393,53 +566,96 @@ class ShaderManager {
             const g = imageData[i * 4 + 1];
             const b = imageData[i * 4 + 2];
             const brightness = (r + g + b) / 3;
-            checkbox.checked = brightness > 127;
+            checkbox.checked = brightness < 127;
         });
     }
 
-    initializeWebcam(node) {
-        console.log('Initializing webcam...');
-        const video = node.querySelector('video');
-        if (!video) {
-            console.error('No video element found');
-            return;
+    async initializeWebcam(node) {
+        try {
+            // Add source selection button
+            const header = node.querySelector('.node-header');
+            const switchButton = document.createElement('button');
+            switchButton.textContent = '📹';
+            switchButton.className = 'switch-camera';
+            switchButton.style.marginLeft = '5px';
+            switchButton.onclick = () => this.switchWebcamSource(node);
+            header.appendChild(switchButton);
+
+            // Initial random source selection
+            await this.switchWebcamSource(node);
+
+        } catch (err) {
+            console.error('Error initializing webcam:', err);
+            this.startWebcam(node);
         }
+    }
 
-        // Add autoplay and playsinline attributes
-        video.autoplay = true;
-        video.playsinline = true;
-        video.muted = true;
-
-        // Request webcam with specific constraints
-        navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 320 },
-                height: { ideal: 240 }
-            }
-        })
-        .then(stream => {
-            console.log('Webcam stream acquired');
-            video.srcObject = stream;
+    async switchWebcamSource(node) {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
             
-            // Make sure video plays
-            video.play()
-                .then(() => console.log('Video playback started'))
-                .catch(e => console.error('Error playing video:', e));
-
-            const nodeData = this.nodeSystem.nodes.get(node.id);
-            if (nodeData) {
-                nodeData.data = { stream, video };
-                console.log('Webcam data stored in node:', nodeData);
+            if (videoDevices.length === 0) {
+                console.log('No video devices found, using default');
+                return this.startWebcam(node);
             }
-        })
-        .catch(err => {
-            console.error('Error accessing webcam:', err);
-            node.querySelector('.node-content').innerHTML = `
-                <div style="color: red; padding: 10px;">
-                    Webcam access failed: ${err.message}
-                </div>
-            `;
-        });
+
+            // Pick a random video device
+            const randomDevice = videoDevices[Math.floor(Math.random() * videoDevices.length)];
+            console.log('Selected random video device:', randomDevice.label);
+
+            // Stop existing stream if any
+            const video = node.querySelector('video');
+            if (video && video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+
+            // Request HD resolution with high framerate
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: { exact: randomDevice.deviceId },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 60 }
+                }
+            });
+
+            if (video) {
+                video.srcObject = stream;
+                video.play()
+                    .then(() => {
+                        console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                    });
+            }
+
+        } catch (err) {
+            console.error('Error switching webcam:', err);
+            this.startWebcam(node);
+        }
+    }
+
+    // Update fallback method to also request HD
+    async startWebcam(node) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 60 }
+                }
+            });
+            const video = node.querySelector('video');
+            if (video) {
+                video.srcObject = stream;
+                video.play()
+                    .then(() => {
+                        console.log(`Default camera dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                    });
+            }
+        } catch (err) {
+            console.error('Error starting webcam:', err);
+        }
     }
 
     initializeHDMI(node) {
@@ -450,26 +666,33 @@ class ShaderManager {
             return;
         }
 
+        // Set HD resolution
+        video.width = 1920;
+        video.height = 1080;
+
         // Add autoplay and playsinline attributes
         video.autoplay = true;
         video.playsinline = true;
         video.muted = true;
 
-        // Request HDMI capture with specific constraints
+        // Request HDMI capture with HD constraints
         navigator.mediaDevices.getDisplayMedia({
             video: {
-                width: { ideal: 320 },
-                height: { ideal: 240 },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
                 frameRate: { ideal: 60 }
             }
         })
         .then(stream => {
-            console.log('HDMI stream acquired');
+            console.log('HD HDMI stream acquired');
             video.srcObject = stream;
             
             // Make sure video plays
             video.play()
-                .then(() => console.log('Video playback started'))
+                .then(() => {
+                    console.log('HD Video playback started');
+                    console.log(`Actual video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                })
                 .catch(e => console.error('Error playing video:', e));
 
             const nodeData = this.nodeSystem.nodes.get(node.id);
@@ -486,6 +709,49 @@ class ShaderManager {
                 </div>
             `;
         });
+    }
+
+    // Update the default shader code to make mouse interaction more obvious
+    getDefaultShaderCode() {
+        return `
+            precision mediump float;
+            
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            uniform vec2 u_mouse;
+            uniform sampler2D u_prevFrame;
+            uniform vec4 u_spectrum;
+
+            void main() {
+                vec2 uv = gl_FragCoord.xy / u_resolution;
+                
+                // Make mouse effect more visible
+                float mouseDist = distance(uv, u_mouse);
+                float mouseGlow = 0.1 / (mouseDist + 0.01); // Stronger glow effect
+                
+                // Get previous frame
+                vec4 prevColor = texture2D(u_prevFrame, uv);
+                
+                // Create base color with time animation
+                vec3 color = vec3(
+                    sin(uv.x * 10.0 + u_time) * 0.5 + 0.5,
+                    cos(uv.y * 10.0 + u_time) * 0.5 + 0.5,
+                    sin(u_time) * 0.5 + 0.5
+                );
+                
+                // Add stronger mouse interaction
+                vec3 mouseColor = vec3(1.0, 0.2, 0.0) * mouseGlow; // Bright orange glow
+                color = mix(color, mouseColor, smoothstep(0.2, 0.0, mouseDist));
+                
+                // Mix with previous frame for trail effect
+                color = mix(color, prevColor.rgb, 0.85);
+                
+                // Add audio reactive elements
+                color += u_spectrum.xyz * 0.1;
+                
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
     }
 }
 
