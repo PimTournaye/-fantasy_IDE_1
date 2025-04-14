@@ -211,7 +211,7 @@ class ShaderManager {
                 const clampedY = Math.max(0, Math.min(1, mouseY));
                 
                 gl.uniform2f(nodeData.data.mouseLocation, clampedX, clampedY);
-                console.log('Mouse position:', clampedX, clampedY); // Debug output
+                // console.log('Mouse position:', clampedX, clampedY); // Debug output
             }
 
             // Update other uniforms

@@ -4,6 +4,7 @@ import ConnectionManager from './ConnectionManager.js';
 import EditorManager from './EditorManager.js';
 import JavaScriptNodeManager from './JavaScriptNodeManager.js';
 import WebGPUManager from './WebGPUManager.js';
+import AINodeManager from './AINodeManager.js';
 ///npx vite
 class NodeSystem {
     static #expandedNode = null;
@@ -23,6 +24,7 @@ class NodeSystem {
         }
         
         this.nodes = new Map();
+        this.connections = new Map();
         
         // Initialize managers
         this.shaderManager = new ShaderManager(this);
@@ -31,6 +33,7 @@ class NodeSystem {
         this.eventHandler = new NodeEventHandler(this);
         this.javaScriptNodeManager = new JavaScriptNodeManager(this);
         this.webgpuManager = new WebGPUManager(this);
+        this.aiNodeManager = new AINodeManager(this);
         
         // Initialize system
         this.initializeSystem();
@@ -79,36 +82,38 @@ class NodeSystem {
         };
 
         const buttons = [
-            { text: 'Add JS Node', onClick: () => {
+            { text: 'Add JS Tile', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('javascript', randomX, randomY);
             }},
-            { text: 'Add WebGL Node', onClick: () => {
+            { text: 'Add WebGL Tile', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('webgl', randomX, randomY);
             }},
-            { text: 'Add WebGPU Node', onClick: () => {
+            { text: 'Add WebGPU Tile', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('webgpu', randomX, randomY);
             }},
-            { text: 'Add Webcam Node', onClick: () => {
+            { text: 'Add Webcam Tile', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('webcam', randomX, randomY);
             }},
-            { text: 'Add HDMI Node', onClick: () => {
+            { text: 'Add HDMI Tile', onClick: () => {
                 const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
                 const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
                 this.createNode('hdmi', randomX, randomY);
             }},
+            { text: 'Add AI Tile', onClick: () => {
+                const randomX = Math.floor(Math.random() * (window.innerWidth - 400));
+                const randomY = Math.floor(Math.random() * (window.innerHeight - 300));
+                this.createNode('ai', randomX, randomY);
+            }},
             { text: 'Random Background', onClick: () => this.setRandomNodeAsBackground() },
-            { text: 'Toggle Bounce', onClick: () => this.eventHandler.toggleBounce() },
-            { text: 'Speed Up', onClick: () => this.eventHandler.speedUp() },
-            { text: 'Slow Down', onClick: () => this.eventHandler.slowDown() },
-            { text: 'CHAOS MODE', onClick: () => this.toggleChaos() }
+            { text: 'Toggle View', onClick: () => this.toggleView() }
         ];
 
         buttons.forEach(({ text, onClick }) => {
@@ -139,6 +144,8 @@ class NodeSystem {
         // Get template based on type
         node.innerHTML = type === 'javascript' ? 
             this.javaScriptNodeManager.getNodeTemplate() : 
+            type === 'ai' ?
+            this.aiNodeManager.getNodeTemplate() :
             this.getNodeTemplate(type);
 
         this.container.appendChild(node);
@@ -153,6 +160,9 @@ class NodeSystem {
 
         this.nodes.set(id, nodeData);
         console.log('Node created:', id);
+
+        // Notify editor manager
+        this.editorManager.handleNodeCreated(id, nodeData);
 
         // Initialize based on type
         switch(type) {
@@ -170,6 +180,9 @@ class NodeSystem {
                 break;
             case 'hdmi':
                 this.shaderManager.initializeHDMI(node);
+                break;
+            case 'ai':
+                this.aiNodeManager.initializeAI(node);
                 break;
         }
 
@@ -268,6 +281,9 @@ class NodeSystem {
         }
         
         this.updateConnections();
+        
+        // Notify editor manager
+        this.editorManager.handleConnectionChanged();
     }
 
     setRandomNodeAsBackground() {
@@ -455,6 +471,26 @@ class NodeSystem {
 
             // Stop chaos in connections
             this.connectionManager?.stopChaosMode();
+        }
+    }
+
+    toggleView() {
+        // Use the EditorManager to toggle the fullscreen editor
+        this.editorManager.toggleEditor('text-view', 'javascript');
+    }
+
+    // Add a method to delete a node
+    deleteNode(nodeId) {
+        const node = document.getElementById(nodeId);
+        if (node) {
+            node.remove();
+            this.nodes.delete(nodeId);
+            
+            // Remove all connections involving this node
+            this.connectionManager.removeConnectionsForNode(nodeId);
+            
+            // Notify editor manager
+            this.editorManager.handleNodeDeleted(nodeId);
         }
     }
 }

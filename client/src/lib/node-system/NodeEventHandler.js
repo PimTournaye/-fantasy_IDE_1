@@ -518,6 +518,72 @@ export class NodeEventHandler {
             y: Math.sin(angle) * (minSpeed + Math.random() * (maxSpeed - minSpeed))
         });
     }
+
+    startCircularAnimation() {
+        this.isAnimating = true;
+        
+        // Calculate center of screen
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
+        // Calculate radius based on screen size
+        const radius = Math.min(window.innerWidth, window.innerHeight) * 0.3;
+        
+        // Get all nodes
+        const nodes = Array.from(this.nodeSystem.nodes.entries());
+        const nodeCount = nodes.length;
+        
+        const animate = () => {
+            if (!this.isAnimating) return;
+            
+            const time = performance.now() * 0.001; // Convert to seconds
+            
+            nodes.forEach(([id, nodeData], index) => {
+                const node = nodeData.element;
+                if (!node) return;
+                
+                // Calculate angle for this node
+                const angle = (index / nodeCount) * Math.PI * 2 + time * 0.5;
+                
+                // Calculate position on circle
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                // Add some vertical oscillation
+                const verticalOffset = Math.sin(time * 2 + index) * 20;
+                
+                // Apply position with smooth transition
+                node.style.transition = 'all 0.3s ease-out';
+                node.style.left = `${x}px`;
+                node.style.top = `${y + verticalOffset}px`;
+                
+                // Add slight rotation
+                node.style.transform = `rotate(${Math.sin(time + index) * 5}deg)`;
+            });
+            
+            // Update connections
+            if (this.nodeSystem.connectionManager) {
+                this.nodeSystem.connectionManager.updateConnections();
+            }
+            
+            requestAnimationFrame(animate);
+        };
+        
+        animate();
+    }
+    
+    stopCircularAnimation() {
+        this.isAnimating = false;
+        
+        // Reset node positions and transforms
+        this.nodeSystem.nodes.forEach((nodeData) => {
+            const node = nodeData.element;
+            if (node) {
+                node.style.transition = 'all 0.5s ease-out';
+                node.style.transform = 'none';
+            }
+        });
+    }
 }
 
 export default NodeEventHandler; 

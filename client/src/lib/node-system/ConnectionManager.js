@@ -6,6 +6,9 @@ class ConnectionManager {
         this.tempConnection = null;
         this.chaosInterval = null;
         
+        // Create event emitter
+        this.events = new Map();
+        
         // Create SVG element
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         this.svg.classList.add('connections');
@@ -98,6 +101,9 @@ class ConnectionManager {
 
         // Create the connection
         this.connections.set(connectionId, { from: fromId, to: toId });
+        
+        // Emit connection event
+        this.emit('connection', fromId, toId);
         
         // Handle webcam to WebGL connection
         if (fromNodeData.type === 'webcam' && toNodeData.type === 'webgl') {
@@ -411,6 +417,20 @@ class ConnectionManager {
                 connection.style.strokeWidth = '3px';
                 connection.style.filter = 'none';
             });
+        }
+    }
+
+    // Add event emitter methods
+    on(event, callback) {
+        if (!this.events.has(event)) {
+            this.events.set(event, []);
+        }
+        this.events.get(event).push(callback);
+    }
+
+    emit(event, ...args) {
+        if (this.events.has(event)) {
+            this.events.get(event).forEach(callback => callback(...args));
         }
     }
 }
