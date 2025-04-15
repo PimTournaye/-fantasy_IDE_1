@@ -25,11 +25,6 @@ DATABASE_URL=your_postgres_connection_string
 SESSION_SECRET=your_session_secret
 ```
 
-4. Initialize the mystical database:
-```bash
-npm run db:push
-```
-
 5. Start:
 ```bash
 npm run dev:all
