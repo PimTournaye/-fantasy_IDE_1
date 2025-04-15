@@ -39,7 +39,7 @@ npm run dev:all
 - Code Editor: CodeMirror
 - Real-time: Socket.IO
 
-## Join the Adventure! 🎨
+
 
 Feel free to:
 - Submit ideas for new features
