@@ -10,6 +10,8 @@ class EditorManager {
         this.isFullscreen = false;
         this.currentCode = '';
         this._isUpdating = false;
+        this._editorContent = ''; // Store the current editor content
+        this._lastSavedContent = ''; // Store the last saved content
     }
 
     initializeEditor() {
@@ -57,7 +59,7 @@ class EditorManager {
 
         // Listen for changes in the editor
         this._editor.on('change', () => {
-            this.updateNodesFromEditor();
+            this.handleEditorChange();
         });
 
         // Add close button
@@ -156,34 +158,33 @@ class EditorManager {
 
         try {
             const code = this._editor.getValue();
-            console.log('Updating nodes from editor with code:', code);
             
-            // Create a sandboxed environment with access to node manipulation functions
+            // Create a sandboxed environment with access to tile manipulation functions
             const sandbox = {
                 nodes: this.nodeSystem.nodes,
-                getNode: (id) => {
-                    const node = document.getElementById(id);
-                    const nodeData = this.nodeSystem.nodes.get(id);
+                getTile: (id) => {
+                    const tile = document.getElementById(id);
+                    const tileData = this.nodeSystem.nodes.get(id);
                     return {
-                        element: node,
-                        data: nodeData,
+                        element: tile,
+                        data: tileData,
                         setPosition: (x, y) => {
-                            if (node) {
-                                node.style.left = `${x}px`;
-                                node.style.top = `${y}px`;
+                            if (tile) {
+                                tile.style.left = `${x}px`;
+                                tile.style.top = `${y}px`;
                             }
-                            if (nodeData) {
-                                nodeData.position = { x, y };
+                            if (tileData) {
+                                tileData.position = { x, y };
                             }
                         },
                         setCode: (code) => {
-                            if (nodeData) {
-                                nodeData.code = code;
-                                if (nodeData.type === 'webgl') {
+                            if (tileData) {
+                                tileData.code = code;
+                                if (tileData.type === 'webgl') {
                                     this.nodeSystem.shaderManager.updateShader(id, code);
-                                } else if (nodeData.type === 'webgpu') {
+                                } else if (tileData.type === 'webgpu') {
                                     this.nodeSystem.webgpuManager.updateShader(id, code);
-                                } else if (nodeData.type === 'javascript') {
+                                } else if (tileData.type === 'javascript') {
                                     this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
                                 }
                             }
@@ -223,7 +224,6 @@ class EditorManager {
                 }
             `);
             func(sandbox);
-            console.log('Code executed successfully');
         } catch (error) {
             console.error('Error executing code:', error);
         }
@@ -233,32 +233,32 @@ class EditorManager {
         try {
             const code = this._editor.getValue();
             
-            // Create a sandboxed environment with access to node manipulation functions
+            // Create a sandboxed environment with access to tile manipulation functions
             const sandbox = {
                 nodes: this.nodeSystem.nodes,
-                getNode: (id) => {
-                    const node = document.getElementById(id);
-                    const nodeData = this.nodeSystem.nodes.get(id);
+                getTile: (id) => {
+                    const tile = document.getElementById(id);
+                    const tileData = this.nodeSystem.nodes.get(id);
                     return {
-                        element: node,
-                        data: nodeData,
+                        element: tile,
+                        data: tileData,
                         setPosition: (x, y) => {
-                            if (node) {
-                                node.style.left = `${x}px`;
-                                node.style.top = `${y}px`;
+                            if (tile) {
+                                tile.style.left = `${x}px`;
+                                tile.style.top = `${y}px`;
                             }
-                            if (nodeData) {
-                                nodeData.position = { x, y }; 
+                            if (tileData) {
+                                tileData.position = { x, y };
                             }
                         },
                         setCode: (code) => {
-                            if (nodeData) {
-                                nodeData.code = code;
-                                if (nodeData.type === 'webgl') {
+                            if (tileData) {
+                                tileData.code = code;
+                                if (tileData.type === 'webgl') {
                                     this.nodeSystem.shaderManager.updateShader(id, code);
-                                } else if (nodeData.type === 'webgpu') {
+                                } else if (tileData.type === 'webgpu') {
                                     this.nodeSystem.webgpuManager.updateShader(id, code);
-                                } else if (nodeData.type === 'javascript') {
+                                } else if (tileData.type === 'javascript') {
                                     this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
                                 }
                             }
@@ -306,77 +306,20 @@ class EditorManager {
 
     toggleEditor(nodeId, type) {
         if (nodeId === 'text-view') {
-            console.log('Initializing text view editor...');
+            console.log('Toggling text view editor...');
             
-            if (!this._editor) {
-                console.log('Creating new editor instance...');
-                this.initializeEditor();
-            }
-            
-            // Generate JavaScript functions for each node
-            const nodeFunctions = Array.from(this.nodeSystem.nodes.entries())
-                .map(([id, nodeData]) => {
-                    const node = document.getElementById(id);
-                    const rect = node ? node.getBoundingClientRect() : { x: 0, y: 0 };
-                    
-                    // Get connections for this node
-                    const connections = Array.from(this.nodeSystem.connectionManager.connections.entries())
-                        .filter(([_, conn]) => conn.from === id || conn.to === id)
-                        .map(([_, conn]) => ({
-                            from: conn.from,
-                            to: conn.to
-                        }));
-
-                    return `function update${id.replace(/-/g, '_')}() {
-    const node = getNode('${id}');
-        if (!node) return;
-    
-    // Update position
-    node.setPosition(${rect.x}, ${rect.y});
-    
-    // Update code
-    node.setCode(\`${nodeData.code || ''}\`);
-    
-    // Update connections
-    const currentConnections = node.getConnections();
-    const newConnections = ${JSON.stringify(connections)};
-    
-    // Remove old connections
-    currentConnections.forEach(conn => {
-        if (!newConnections.some(c => c.from === conn.from && c.to === conn.to)) {
-            // TODO: Add connection removal function
-        }
-    });
-    
-    // Add new connections
-    newConnections.forEach(conn => {
-        if (!currentConnections.some(c => c.from === conn.from && c.to === conn.to)) {
-            // TODO: Add connection creation function
-        }
-    });
-}`;
-                })
-                .join('\n\n');
-
-            // Add example usage
-            const exampleUsage = `
-
-// Example: Update all nodes
-function updateAllNodes() {
-${Array.from(this.nodeSystem.nodes.keys())
-    .map(id => `    update${id.replace(/-/g, '_')}();`)
-    .join('\n')}
-}
-
-// Run the update
-updateAllNodes();`;
-
-            const editorContent = nodeFunctions + exampleUsage;
-            console.log('Setting editor content:', editorContent);
-            
-            // Ensure editor is visible
             const editorContainer = document.getElementById('editor-container');
-            if (editorContainer) {
+            if (!editorContainer) {
+                console.error('Editor container not found!');
+                return;
+            }
+
+            // Toggle visibility
+            if (editorContainer.style.display === 'block') {
+                editorContainer.style.display = 'none';
+                // Save the current content when closing
+                this._lastSavedContent = this._editor.getValue();
+            } else {
                 editorContainer.style.display = 'block';
                 editorContainer.style.position = 'fixed';
                 editorContainer.style.top = '0';
@@ -387,17 +330,14 @@ updateAllNodes();`;
                 editorContainer.style.zIndex = '1000';
                 editorContainer.style.padding = '20px';
                 editorContainer.style.boxSizing = 'border-box';
+                
+                // Set the last saved content if editor is visible
+                if (this._editor) {
+                    this._editor.setValue(this._lastSavedContent || this._editorContent);
+                    this._editor.refresh();
+                    this._editor.focus();
+                }
             }
-            
-            // Set the content
-            if (this._editor) {
-                console.log('Setting editor content:', editorContent);
-                this.setCode(editorContent);
-            } else {
-                console.error('Editor not initialized!');
-            }
-            
-            this.toggleFullscreen();
         } else {
             // Close any existing editor first
             if (this._activeEditor) {
@@ -619,13 +559,22 @@ updateAllNodes();`;
             // Add Shift+Enter handler for JavaScript nodes
             if (type === 'javascript') {
                 this._editor.setOption('extraKeys', {
-                    'Shift-Enter': (cm) => this.updateJavaScriptNode(nodeId, cm.getValue()),
+                    'Shift-Enter': (cm) => {
+                        this.updateJavaScriptNode(nodeId, cm.getValue());
+                        this.updateEditorContent(); // Update toggle view editor
+                    },
                     'Esc': (cm) => this.hideEditor()
                 });
             } else {
                 this._editor.setOption('extraKeys', {
-                    'Ctrl-S': (cm) => this.saveChanges(),
-                    'Cmd-S': (cm) => this.saveChanges(),
+                    'Ctrl-S': (cm) => {
+                        this.saveChanges(nodeId);
+                        this.updateEditorContent(); // Update toggle view editor
+                    },
+                    'Cmd-S': (cm) => {
+                        this.saveChanges(nodeId);
+                        this.updateEditorContent(); // Update toggle view editor
+                    },
                     'Esc': (cm) => this.hideEditor()
                 });
             }
@@ -657,6 +606,7 @@ updateAllNodes();`;
                 }
             }
             nodeData.code = code;
+            this.updateEditorContent(); // Update toggle view editor
         }
     }
 
@@ -697,8 +647,8 @@ updateAllNodes();`;
                 this.nodeSystem.connectionManager?.updateConnections();
             }
 
+            this.updateEditorContent(); // Update toggle view editor
             console.log('JavaScript node updated successfully');
-         //   this.hideEditor();
         } catch (error) {
             console.error('Error updating JavaScript node:', error);
         }
@@ -728,6 +678,8 @@ updateAllNodes();`;
         } else if (nodeData.type === 'javascript') {
             this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
         }
+
+        this.updateEditorContent(); // Update toggle view editor
     }
 
     closeEditor(nodeId) {
@@ -747,6 +699,7 @@ updateAllNodes();`;
                 } else if (nodeData.type === 'javascript') {
                     this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
                 }
+                this.updateEditorContent(); // Update toggle view editor
             }
             
             // Remove the editor container
@@ -804,37 +757,39 @@ updateAllNodes();`;
     }
 
     // Add a method to handle node updates from the editor
-    updateNodesFromEditor() {
+    handleEditorChange() {
         if (this._isUpdating) return;
-
+        
         try {
-            // Instead of parsing JSON, just run the JavaScript code
             const code = this._editor.getValue();
+            this._lastSavedContent = code;
+            
+            // Create a sandboxed environment with access to tile manipulation functions
             const sandbox = {
                 nodes: this.nodeSystem.nodes,
-                getNode: (id) => {
-                    const node = document.getElementById(id);
-                    const nodeData = this.nodeSystem.nodes.get(id);
+                getTile: (id) => {
+                    const tile = document.getElementById(id);
+                    const tileData = this.nodeSystem.nodes.get(id);
                     return {
-                        element: node,
-                        data: nodeData,
+                        element: tile,
+                        data: tileData,
                         setPosition: (x, y) => {
-                            if (node) {
-                                node.style.left = `${x}px`;
-                                node.style.top = `${y}px`;
+                            if (tile) {
+                                tile.style.left = `${x}px`;
+                                tile.style.top = `${y}px`;
                             }
-                            if (nodeData) {
-                                nodeData.position = { x, y };
+                            if (tileData) {
+                                tileData.position = { x, y };
                             }
                         },
                         setCode: (code) => {
-                            if (nodeData) {
-                                nodeData.code = code;
-                                if (nodeData.type === 'webgl') {
+                            if (tileData) {
+                                tileData.code = code;
+                                if (tileData.type === 'webgl') {
                                     this.nodeSystem.shaderManager.updateShader(id, code);
-                                } else if (nodeData.type === 'webgpu') {
+                                } else if (tileData.type === 'webgpu') {
                                     this.nodeSystem.webgpuManager.updateShader(id, code);
-                                } else if (nodeData.type === 'javascript') {
+                                } else if (tileData.type === 'javascript') {
                                     this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
                                 }
                             }
@@ -848,23 +803,6 @@ updateAllNodes();`;
                                 }));
                         }
                     };
-                },
-                animate: (duration, callback) => {
-                    const start = performance.now();
-                    const animate = (currentTime) => {
-                        const elapsed = currentTime - start;
-                        const progress = Math.min(elapsed / duration, 1);
-                        callback(progress);
-                        if (progress < 1) {
-                            requestAnimationFrame(animate);
-                        }
-                    };
-                    requestAnimationFrame(animate);
-                },
-                console: {
-                    log: (...args) => console.log(...args),
-                    error: (...args) => console.error(...args),
-                    warn: (...args) => console.warn(...args)
                 }
             };
 
@@ -881,37 +819,179 @@ updateAllNodes();`;
 
     // Add a method to handle node creation
     handleNodeCreated(nodeId, nodeData) {
-        if (this._editor && !this._isUpdating) {
-            this._isUpdating = true;
-            try {
-                this.updateEditorWithNodes();
-            } finally {
-                this._isUpdating = false;
-            }
-        }
+        this.updateEditorContent();
     }
 
     // Add a method to handle node deletion
     handleNodeDeleted(nodeId) {
-        if (this._editor && !this._isUpdating) {
-            this._isUpdating = true;
-            try {
-                this.updateEditorWithNodes();
-            } finally {
-                this._isUpdating = false;
-            }
-        }
+        this.updateEditorContent();
     }
 
     // Add a method to handle connection changes
     handleConnectionChanged() {
-        if (this._editor && !this._isUpdating) {
-            this._isUpdating = true;
-            try {
-                this.updateEditorWithNodes();
-            } finally {
-                this._isUpdating = false;
-            }
+        this.updateEditorContent();
+    }
+
+    // Add a new method to update editor content when nodes change
+    updateEditorContent() {
+        if (!this._editor) return;
+
+        // Generate JavaScript functions for each tile
+        const tileFunctions = Array.from(this.nodeSystem.nodes.entries())
+            .map(([id, tileData]) => {
+                const tile = document.getElementById(id);
+                const rect = tile ? tile.getBoundingClientRect() : { x: 0, y: 0 };
+                
+                // Get connections for this tile
+                const connections = Array.from(this.nodeSystem.connectionManager.connections.entries())
+                    .filter(([_, conn]) => conn.from === id || conn.to === id)
+                    .map(([_, conn]) => ({
+                        from: conn.from,
+                        to: conn.to
+                    }));
+
+                // Create tile properties object
+                const tileProperties = {
+                    ...tileData.data,
+                    code: tileData.code || '',
+                    position: { x: rect.x, y: rect.y },
+                    connections: connections
+                };
+
+                // Create the tile function
+                return `function create${id.replace(/-/g, '_')}() {
+    // Tile properties
+    const properties = ${JSON.stringify(tileProperties, null, 4)};
+    
+    // Create tile
+    const tile = getTile('${id}');
+    if (!tile) return;
+    
+    // Update position
+    tile.setPosition(properties.position.x, properties.position.y);
+    
+    // Update code
+    tile.setCode(\`${(tileData.code || '').replace(/`/g, '\\`')}\`);
+    
+    // Update connections
+    const currentConnections = tile.getConnections();
+    const newConnections = properties.connections;
+    
+    // Remove old connections
+    currentConnections.forEach(conn => {
+        if (!newConnections.some(c => c.from === conn.from && c.to === conn.to)) {
+            // TODO: Add connection removal function
+        }
+    });
+    
+    // Add new connections
+    newConnections.forEach(conn => {
+        if (!currentConnections.some(c => c.from === conn.from && c.to === conn.to)) {
+            // TODO: Add connection creation function
+        }
+    });
+    
+    return tile;
+}`;
+            })
+            .join('\n\n');
+
+        // Add example usage
+        const exampleUsage = `
+
+// Example: Create and update all tiles
+function createAllTiles() {
+${Array.from(this.nodeSystem.nodes.keys())
+    .map(id => `    create${id.replace(/-/g, '_')}();`)
+    .join('\n')}
+}
+
+// Run the creation
+createAllTiles();`;
+
+        this._editorContent = tileFunctions + exampleUsage;
+        this._lastSavedContent = this._editorContent;
+        
+        // Update the editor if it's visible
+        if (this._editor && document.getElementById('editor-container')?.style.display === 'block') {
+            this._editor.setValue(this._editorContent);
+            this._editor.refresh();
+        }
+    }
+
+    // Add a method to handle tile updates
+    handleTileUpdated(tileId, tileData) {
+        this.updateEditorContent();
+    }
+
+    // Add a method to handle tile deletion
+    handleTileDeleted(tileId) {
+        this.updateEditorContent();
+    }
+
+    // Add a method to handle connection changes
+    handleConnectionChanged() {
+        this.updateEditorContent();
+    }
+
+    // Add a method to handle code changes in the editor
+    handleEditorChange() {
+        if (this._isUpdating) return;
+        
+        try {
+            const code = this._editor.getValue();
+            this._lastSavedContent = code;
+            
+            // Create a sandboxed environment with access to tile manipulation functions
+            const sandbox = {
+                nodes: this.nodeSystem.nodes,
+                getTile: (id) => {
+                    const tile = document.getElementById(id);
+                    const tileData = this.nodeSystem.nodes.get(id);
+                    return {
+                        element: tile,
+                        data: tileData,
+                        setPosition: (x, y) => {
+                            if (tile) {
+                                tile.style.left = `${x}px`;
+                                tile.style.top = `${y}px`;
+                            }
+                            if (tileData) {
+                                tileData.position = { x, y };
+                            }
+                        },
+                        setCode: (code) => {
+                            if (tileData) {
+                                tileData.code = code;
+                                if (tileData.type === 'webgl') {
+                                    this.nodeSystem.shaderManager.updateShader(id, code);
+                                } else if (tileData.type === 'webgpu') {
+                                    this.nodeSystem.webgpuManager.updateShader(id, code);
+                                } else if (tileData.type === 'javascript') {
+                                    this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
+                                }
+                            }
+                        },
+                        getConnections: () => {
+                            return Array.from(this.nodeSystem.connectionManager.connections.entries())
+                                .filter(([_, conn]) => conn.from === id || conn.to === id)
+                                .map(([_, conn]) => ({
+                                    from: conn.from,
+                                    to: conn.to
+                                }));
+                        }
+                    };
+                }
+            };
+
+            const func = new Function('sandbox', `
+                with(sandbox) {
+                    ${code}
+                }
+            `);
+            func(sandbox);
+        } catch (error) {
+            console.error('Error executing code:', error);
         }
     }
 }
