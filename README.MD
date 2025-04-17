@@ -10,8 +10,8 @@ You can read more about roadmap and updates at [charstiles.github.io/loading/](h
 
 1. Clone this repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/CharStiles/-fantasy_IDE_1.git
+cd fantasy_IDE_1
 ```
 
 2. Install :
@@ -69,8 +69,8 @@ You can read more about roadmap and updates at [charstiles.github.io/loading/](h
 
 1. Clone this repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/CharStiles/-fantasy_IDE_1.git
+cd fantasy_IDE_1
 ```
 
 2. Install :
@@ -78,10 +78,9 @@ cd <repository-name>
 npm install
 ```
 
-3. Create your `.env` file :
+3. Create your `.env` file (if you want to use AI components):
 ```
-DATABASE_URL=your_postgres_connection_string
-SESSION_SECRET=your_session_secret
+OPENAI_API_KEY=your_key
 ```
 
 5. Start:
@@ -93,7 +92,6 @@ npm run dev:all
 
 - Frontend: TypeScript, Vite, TailwindCSS
 - Backend: Express, TypeScript
-- Database: PostgreSQL with Drizzle ORM
 - UI Components: Radix UI, Shadcn
 - Code Editor: CodeMirror
 - Real-time: Socket.IO
@@ -104,7 +102,7 @@ Feel free to:
 - Submit ideas for new features
 - Report bugs
 - Contribute code
-- Share your experiences using Fantasy IDE
+- Share your experiences using Fantasy IDE (find me online at charstiles!)
 
 ## License 📜
 
