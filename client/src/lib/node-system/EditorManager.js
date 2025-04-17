@@ -329,7 +329,7 @@ class EditorManager {
 
                     return `function update${id.replace(/-/g, '_')}() {
     const node = getNode('${id}');
-    if (!node) return;
+        if (!node) return;
     
     // Update position
     node.setPosition(${rect.x}, ${rect.y});
@@ -407,39 +407,39 @@ updateAllNodes();`;
             const node = document.getElementById(nodeId);
             if (!node && nodeId !== 'text-view') return;
 
-            const nodeData = this.nodeSystem.nodes.get(nodeId);
+        const nodeData = this.nodeSystem.nodes.get(nodeId);
             if (!nodeData && nodeId !== 'text-view') return;
 
-            const editorContainer = document.createElement('div');
-            editorContainer.className = 'editor-container';
-            editorContainer.style.position = 'fixed';
-            editorContainer.style.top = '50%';
-            editorContainer.style.left = '50%';
-            editorContainer.style.transform = 'translate(-50%, -50%)';
-            editorContainer.style.zIndex = '1000';
-            editorContainer.style.backgroundColor = '#1e1e1e';
-            editorContainer.style.padding = '20px';
-            editorContainer.style.borderRadius = '5px';
-            editorContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        const editorContainer = document.createElement('div');
+        editorContainer.className = 'editor-container';
+        editorContainer.style.position = 'fixed';
+        editorContainer.style.top = '50%';
+        editorContainer.style.left = '50%';
+        editorContainer.style.transform = 'translate(-50%, -50%)';
+        editorContainer.style.zIndex = '1000';
+        editorContainer.style.backgroundColor = '#1e1e1e';
+        editorContainer.style.padding = '20px';
+        editorContainer.style.borderRadius = '5px';
+        editorContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
 
-            // Add toolbar with appropriate buttons
-            const toolbar = document.createElement('div');
-            toolbar.style.marginBottom = '10px';
-            toolbar.style.display = 'flex';
-            toolbar.style.justifyContent = 'space-between';
-            toolbar.style.alignItems = 'center';
+        // Add toolbar with appropriate buttons
+        const toolbar = document.createElement('div');
+        toolbar.style.marginBottom = '10px';
+        toolbar.style.display = 'flex';
+        toolbar.style.justifyContent = 'space-between';
+        toolbar.style.alignItems = 'center';
 
             if (type === 'javascript' || nodeId === 'text-view') {
-                const runButton = document.createElement('button');
-                runButton.textContent = '▶ Run (Ctrl+Enter)';
-                runButton.style.padding = '5px 10px';
-                runButton.style.backgroundColor = '#4CAF50';
-                runButton.style.color = 'white';
-                runButton.style.border = 'none';
-                runButton.style.borderRadius = '3px';
-                runButton.style.cursor = 'pointer';
-                
-                runButton.onclick = () => {
+            const runButton = document.createElement('button');
+            runButton.textContent = '▶ Run (Ctrl+Enter)';
+            runButton.style.padding = '5px 10px';
+            runButton.style.backgroundColor = '#4CAF50';
+            runButton.style.color = 'white';
+            runButton.style.border = 'none';
+            runButton.style.borderRadius = '3px';
+            runButton.style.cursor = 'pointer';
+            
+            runButton.onclick = () => {
                     const code = this._editor.getValue();
                     if (nodeId === 'text-view') {
                         // Update the text view code
@@ -450,65 +450,65 @@ updateAllNodes();`;
                         });
                         document.dispatchEvent(event);
                     } else {
-                        this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
                     }
-                };
-                toolbar.appendChild(runButton);
-            } else if (type === 'webgl' || type === 'webgpu') {
-                const saveButton = document.createElement('button');
-                saveButton.textContent = '💾 Save (Ctrl+S)';
-                saveButton.style.padding = '5px 10px';
-                saveButton.style.backgroundColor = '#4CAF50';
-                saveButton.style.color = 'white';
-                saveButton.style.border = 'none';
-                saveButton.style.borderRadius = '3px';
-                saveButton.style.cursor = 'pointer';
-                
-                saveButton.onclick = () => {
+            };
+            toolbar.appendChild(runButton);
+        } else if (type === 'webgl' || type === 'webgpu') {
+            const saveButton = document.createElement('button');
+            saveButton.textContent = '💾 Save (Ctrl+S)';
+            saveButton.style.padding = '5px 10px';
+            saveButton.style.backgroundColor = '#4CAF50';
+            saveButton.style.color = 'white';
+            saveButton.style.border = 'none';
+            saveButton.style.borderRadius = '3px';
+            saveButton.style.cursor = 'pointer';
+            
+            saveButton.onclick = () => {
                     const code = this._editor.getValue();
-                    this.saveChanges(nodeId);
-                };
-                toolbar.appendChild(saveButton);
-            }
+                this.saveChanges(nodeId);
+            };
+            toolbar.appendChild(saveButton);
+        }
 
-            editorContainer.appendChild(toolbar);
+        editorContainer.appendChild(toolbar);
 
-            // Create editor div
-            const editorDiv = document.createElement('div');
-            editorDiv.style.width = '600px';
-            editorDiv.style.height = '400px';
-            editorContainer.appendChild(editorDiv);
+        // Create editor div
+        const editorDiv = document.createElement('div');
+        editorDiv.style.width = '600px';
+        editorDiv.style.height = '400px';
+        editorContainer.appendChild(editorDiv);
 
-            document.body.appendChild(editorContainer);
+        document.body.appendChild(editorContainer);
 
-            // Initialize CodeMirror
+        // Initialize CodeMirror
             this._editor = CodeMirror(editorDiv, {
                 value: nodeId === 'text-view' ? this._editor?.getValue() || '' : (nodeData?.code || ''),
-                mode: type === 'webgl' ? 'x-shader/x-fragment' : 'javascript',
-                theme: 'monokai',
-                lineNumbers: true,
-                autoCloseBrackets: true,
-                matchBrackets: true,
-                indentUnit: 4
-            });
+            mode: type === 'webgl' ? 'x-shader/x-fragment' : 'javascript',
+            theme: 'monokai',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 4
+        });
 
-            // Add real-time compilation for WebGL nodes
-            if (type === 'webgl' || type === 'webgpu') {
+        // Add real-time compilation for WebGL nodes
+        if (type === 'webgl' || type === 'webgpu') {
                 this._editor.on('change', () => {
                     const code = this._editor.getValue();
-                    if (type === 'webgl') {
-                        this.nodeSystem.shaderManager.updateShader(nodeId, code);
-                    } else if (type === 'webgpu') {
-                        this.nodeSystem.webgpuManager.updateShader(nodeId, code);
-                    }
-                });
-            }
+                if (type === 'webgl') {
+                    this.nodeSystem.shaderManager.updateShader(nodeId, code);
+                } else if (type === 'webgpu') {
+                    this.nodeSystem.webgpuManager.updateShader(nodeId, code);
+                }
+            });
+        }
 
-            // Add appropriate keyboard shortcuts
+        // Add appropriate keyboard shortcuts
             if (type === 'javascript' || nodeId === 'text-view') {
                 this._editor.setOption('extraKeys', {
-                    'Ctrl-Enter': (cm) => {
-                        const code = cm.getValue();
+                'Ctrl-Enter': (cm) => {
+                    const code = cm.getValue();
                         if (nodeId === 'text-view') {
                             const event = new CustomEvent('textViewCodeUpdated', { 
                                 detail: { code },
@@ -517,11 +517,11 @@ updateAllNodes();`;
                             });
                             document.dispatchEvent(event);
                         } else {
-                            this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
                         }
-                    },
-                    'Cmd-Enter': (cm) => {
-                        const code = cm.getValue();
+                },
+                'Cmd-Enter': (cm) => {
+                    const code = cm.getValue();
                         if (nodeId === 'text-view') {
                             const event = new CustomEvent('textViewCodeUpdated', { 
                                 detail: { code },
@@ -530,56 +530,56 @@ updateAllNodes();`;
                             });
                             document.dispatchEvent(event);
                         } else {
-                            this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
                         }
-                    },
-                    'Esc': () => this.closeEditor(nodeId)
-                });
-            } else {
+                },
+                'Esc': () => this.closeEditor(nodeId)
+            });
+        } else {
                 this._editor.setOption('extraKeys', {
-                    'Esc': () => this.closeEditor(nodeId)
-                });
-            }
+                'Esc': () => this.closeEditor(nodeId)
+            });
+        }
 
-            // Remove the save button for WebGL nodes since we're compiling in real-time
-            if (type === 'webgl' || type === 'webgpu') {
-                toolbar.style.display = 'none';
-            }
+        // Remove the save button for WebGL nodes since we're compiling in real-time
+        if (type === 'webgl' || type === 'webgpu') {
+            toolbar.style.display = 'none';
+        }
 
-            // Add close button
-            const closeButton = document.createElement('button');
-            closeButton.textContent = '×';
-            closeButton.style.position = 'absolute';
-            closeButton.style.right = '10px';
-            closeButton.style.top = '10px';
-            closeButton.style.border = 'none';
-            closeButton.style.background = 'none';
-            closeButton.style.color = 'white';
-            closeButton.style.fontSize = '20px';
-            closeButton.style.cursor = 'pointer';
-            closeButton.onclick = () => this.closeEditor(nodeId);
-            editorContainer.appendChild(closeButton);
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.style.position = 'absolute';
+        closeButton.style.right = '10px';
+        closeButton.style.top = '10px';
+        closeButton.style.border = 'none';
+        closeButton.style.background = 'none';
+        closeButton.style.color = 'white';
+        closeButton.style.fontSize = '20px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.onclick = () => this.closeEditor(nodeId);
+        editorContainer.appendChild(closeButton);
 
-            // Store editor reference
+        // Store editor reference
             this._activeEditor = {
-                container: editorContainer,
+            container: editorContainer,
                 editor: this._editor,
-                nodeId,
-                type
-            };
+            nodeId,
+            type
+        };
 
-            // Add click-away listener
-            const clickAwayListener = (e) => {
-                if (!editorContainer.contains(e.target) && 
-                    !e.target.closest('.edit-button') && 
-                    !e.target.closest('.expand-button')) {
-                    this.closeEditor(nodeId);
-                    document.removeEventListener('mousedown', clickAwayListener);
-                }
-            };
-            document.addEventListener('mousedown', clickAwayListener);
+        // Add click-away listener
+        const clickAwayListener = (e) => {
+            if (!editorContainer.contains(e.target) && 
+                !e.target.closest('.edit-button') && 
+                !e.target.closest('.expand-button')) {
+                this.closeEditor(nodeId);
+                document.removeEventListener('mousedown', clickAwayListener);
+            }
+        };
+        document.addEventListener('mousedown', clickAwayListener);
 
-            // Refresh editor to ensure proper rendering
+        // Refresh editor to ensure proper rendering
             setTimeout(() => this._editor.refresh(), 0);
         }
     }
