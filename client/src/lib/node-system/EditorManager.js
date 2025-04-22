@@ -12,6 +12,10 @@ class EditorManager {
         this._isUpdating = false;
         this._editorContent = ''; // Store the current editor content
         this._lastSavedContent = ''; // Store the last saved content
+        this._errorDisplay = null;
+        this._currentError = null;
+        this._uniforms = [];
+        this._uniformControls = null;
     }
 
     initializeEditor() {
@@ -25,11 +29,12 @@ class EditorManager {
         editorContainer.style.left = '0';
         editorContainer.style.width = '100%';
         editorContainer.style.height = '100%';
-        editorContainer.style.backgroundColor = '#1e1e1e';
+        editorContainer.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
         editorContainer.style.zIndex = '1000';
         editorContainer.style.display = 'none';
         editorContainer.style.padding = '20px';
         editorContainer.style.boxSizing = 'border-box';
+        editorContainer.style.backdropFilter = 'blur(5px)';
         document.body.appendChild(editorContainer);
 
         // Create editor div
@@ -38,6 +43,23 @@ class EditorManager {
         editorDiv.style.height = 'calc(100% - 100px)'; // Account for buttons
         editorDiv.style.marginTop = '60px'; // Space for buttons
         editorContainer.appendChild(editorDiv);
+
+        // Create error display
+        this._errorDisplay = document.createElement('div');
+        this._errorDisplay.className = 'editor-error';
+        editorContainer.appendChild(this._errorDisplay);
+
+        // Create uniform controls container
+        this._uniformControls = document.createElement('div');
+        this._uniformControls.style.position = 'absolute';
+        this._uniformControls.style.bottom = '20px';
+        this._uniformControls.style.left = '20px';
+        this._uniformControls.style.right = '20px';
+        this._uniformControls.style.backgroundColor = 'rgba(40, 40, 40, 0.9)';
+        this._uniformControls.style.padding = '10px';
+        this._uniformControls.style.borderRadius = '4px';
+        this._uniformControls.style.display = 'none';
+        editorContainer.appendChild(this._uniformControls);
 
         // Initialize CodeMirror
         this._editor = CodeMirror(editorDiv, {
@@ -70,12 +92,16 @@ class EditorManager {
         closeButton.style.top = '20px';
         closeButton.style.width = '40px';
         closeButton.style.height = '40px';
-        closeButton.style.borderRadius = '50%';
-        closeButton.style.backgroundColor = '#333';
-        closeButton.style.color = 'white';
-        closeButton.style.border = 'none';
+        closeButton.style.padding = '8px 16px';
+        closeButton.style.margin = '0 10px';
         closeButton.style.cursor = 'pointer';
-        closeButton.style.fontSize = '24px';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '4px';
+        closeButton.style.backgroundColor = '#444';
+        closeButton.style.color = 'white';
+        closeButton.style.fontSize = '14px';
+        closeButton.style.flexShrink = '0';
+        closeButton.style.fontFamily = "'Bianzhidai', monospace";
         closeButton.style.zIndex = '1001';
         closeButton.onclick = () => this.toggleFullscreen();
         editorContainer.appendChild(closeButton);
@@ -86,12 +112,16 @@ class EditorManager {
         runButton.style.position = 'absolute';
         runButton.style.right = '80px';
         runButton.style.top = '20px';
-        runButton.style.padding = '10px 20px';
-        runButton.style.backgroundColor = '#4CAF50';
-        runButton.style.color = 'white';
+        runButton.style.padding = '8px 16px';
+        runButton.style.margin = '0 10px';
+        runButton.style.cursor = 'pointer';
         runButton.style.border = 'none';
         runButton.style.borderRadius = '4px';
-        runButton.style.cursor = 'pointer';
+        runButton.style.backgroundColor = '#444';
+        runButton.style.color = 'white';
+        runButton.style.fontSize = '14px';
+        runButton.style.flexShrink = '0';
+        runButton.style.fontFamily = "'Bianzhidai', monospace";
         runButton.style.zIndex = '1001';
         runButton.onclick = () => this.runCode();
         editorContainer.appendChild(runButton);
@@ -305,279 +335,274 @@ class EditorManager {
     }
 
     toggleEditor(nodeId, type) {
-        if (nodeId === 'text-view') {
-            console.log('Toggling text view editor...');
-            
-            const editorContainer = document.getElementById('editor-container');
-            if (!editorContainer) {
-                console.error('Editor container not found!');
-                return;
-            }
-
-            // Toggle visibility
-            if (editorContainer.style.display === 'block') {
-                editorContainer.style.display = 'none';
-                // Save the current content when closing
-                this._lastSavedContent = this._editor.getValue();
-            } else {
-                editorContainer.style.display = 'block';
-                editorContainer.style.position = 'fixed';
-                editorContainer.style.top = '0';
-                editorContainer.style.right = '0';
-                editorContainer.style.width = '50%';
-                editorContainer.style.height = 'calc(100vh - 100px)';
-                editorContainer.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
-                editorContainer.style.zIndex = '1000';
-                editorContainer.style.padding = '20px';
-                editorContainer.style.boxSizing = 'border-box';
+        try {
+            if (nodeId === 'text-view') {
+                console.log('Toggling text view editor...');
                 
-                // Set the last saved content if editor is visible
-                if (this._editor) {
-                    this._editor.setValue(this._lastSavedContent || this._editorContent);
-                    this._editor.refresh();
-                    this._editor.focus();
+                const editorContainer = document.getElementById('editor-container');
+                if (!editorContainer) {
+                    console.error('Editor container not found!');
+                    return;
                 }
-            }
-        } else {
-            // Close any existing editor first
-            if (this._activeEditor) {
-                this.closeEditor(this._activeEditor.nodeId);
-            }
 
-            const node = document.getElementById(nodeId);
-            if (!node && nodeId !== 'text-view') return;
-
-        const nodeData = this.nodeSystem.nodes.get(nodeId);
-            if (!nodeData && nodeId !== 'text-view') return;
-
-        const editorContainer = document.createElement('div');
-        editorContainer.className = 'editor-container';
-        editorContainer.style.position = 'fixed';
-        editorContainer.style.top = '50%';
-        editorContainer.style.left = '50%';
-        editorContainer.style.transform = 'translate(-50%, -50%)';
-        editorContainer.style.zIndex = '1000';
-        editorContainer.style.backgroundColor = '#1e1e1e';
-        editorContainer.style.padding = '20px';
-        editorContainer.style.borderRadius = '5px';
-        editorContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-
-        // Add toolbar with appropriate buttons
-        const toolbar = document.createElement('div');
-        toolbar.style.marginBottom = '10px';
-        toolbar.style.display = 'flex';
-        toolbar.style.justifyContent = 'space-between';
-        toolbar.style.alignItems = 'center';
-
-            if (type === 'javascript' || nodeId === 'text-view') {
-            const runButton = document.createElement('button');
-            runButton.textContent = '▶ Run (Ctrl+Enter)';
-            runButton.style.padding = '5px 10px';
-            runButton.style.backgroundColor = '#4CAF50';
-            runButton.style.color = 'white';
-            runButton.style.border = 'none';
-            runButton.style.borderRadius = '3px';
-            runButton.style.cursor = 'pointer';
-            
-            runButton.onclick = () => {
-                    const code = this._editor.getValue();
-                    if (nodeId === 'text-view') {
-                        // Update the text view code
-                        const event = new CustomEvent('textViewCodeUpdated', { 
-                            detail: { code },
-                            bubbles: true,
-                            composed: true
-                        });
-                        document.dispatchEvent(event);
-                    } else {
-                this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                // Toggle visibility
+                if (editorContainer.style.display === 'block') {
+                    editorContainer.style.display = 'none';
+                    // Save the current content when closing
+                    this._lastSavedContent = this._editor.getValue();
+                } else {
+                    editorContainer.style.display = 'block';
+                    editorContainer.style.position = 'fixed';
+                    editorContainer.style.top = '0';
+                    editorContainer.style.right = '0';
+                    editorContainer.style.width = '50%';
+                    editorContainer.style.height = 'calc(100vh - 100px)';
+                    editorContainer.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
+                    editorContainer.style.zIndex = '1000';
+                    editorContainer.style.padding = '20px';
+                    editorContainer.style.boxSizing = 'border-box';
+                    
+                    // Set the last saved content if editor is visible
+                    if (this._editor) {
+                        this._editor.setValue(this._lastSavedContent || this._editorContent);
+                        this._editor.refresh();
+                        this._editor.focus();
                     }
-            };
-            toolbar.appendChild(runButton);
-        } else if (type === 'webgl' || type === 'webgpu') {
-            const saveButton = document.createElement('button');
-            saveButton.textContent = '💾 Save (Ctrl+S)';
-            saveButton.style.padding = '5px 10px';
-            saveButton.style.backgroundColor = '#4CAF50';
-            saveButton.style.color = 'white';
-            saveButton.style.border = 'none';
-            saveButton.style.borderRadius = '3px';
-            saveButton.style.cursor = 'pointer';
-            
-            saveButton.onclick = () => {
-                    const code = this._editor.getValue();
-                this.saveChanges(nodeId);
-            };
-            toolbar.appendChild(saveButton);
-        }
-
-        editorContainer.appendChild(toolbar);
-
-        // Create editor div
-        const editorDiv = document.createElement('div');
-        editorDiv.style.width = '600px';
-        editorDiv.style.height = '400px';
-        editorContainer.appendChild(editorDiv);
-
-        document.body.appendChild(editorContainer);
-
-        // Initialize CodeMirror
-            this._editor = CodeMirror(editorDiv, {
-                value: nodeId === 'text-view' ? this._editor?.getValue() || '' : (nodeData?.code || ''),
-            mode: type === 'webgl' ? 'x-shader/x-fragment' : 'javascript',
-            theme: 'monokai',
-            lineNumbers: true,
-            autoCloseBrackets: true,
-            matchBrackets: true,
-            indentUnit: 4
-        });
-
-        // Add real-time compilation for WebGL nodes
-        if (type === 'webgl' || type === 'webgpu') {
-                this._editor.on('change', () => {
-                    const code = this._editor.getValue();
-                if (type === 'webgl') {
-                    this.nodeSystem.shaderManager.updateShader(nodeId, code);
-                } else if (type === 'webgpu') {
-                    this.nodeSystem.webgpuManager.updateShader(nodeId, code);
                 }
-            });
-        }
+            } else {
+                // Close any existing editor first
+                if (this._activeEditor) {
+                    this.closeEditor(this._activeEditor.nodeId);
+                }
 
-        // Add appropriate keyboard shortcuts
-            if (type === 'javascript' || nodeId === 'text-view') {
-                this._editor.setOption('extraKeys', {
-                'Ctrl-Enter': (cm) => {
-                    const code = cm.getValue();
-                        if (nodeId === 'text-view') {
-                            const event = new CustomEvent('textViewCodeUpdated', { 
-                                detail: { code },
-                                bubbles: true,
-                                composed: true
-                            });
-                            document.dispatchEvent(event);
-                        } else {
-                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                const node = document.getElementById(nodeId);
+                if (!node && nodeId !== 'text-view') {
+                    console.error('Node not found:', nodeId);
+                    return;
+                }
+
+                const nodeData = this.nodeSystem.nodes.get(nodeId);
+                if (!nodeData && nodeId !== 'text-view') {
+                    console.error('Node data not found:', nodeId);
+                    return;
+                }
+
+                const editorContainer = document.createElement('div');
+                editorContainer.className = 'editor-container';
+                editorContainer.style.position = 'fixed';
+                editorContainer.style.top = '50%';
+                editorContainer.style.left = '50%';
+                editorContainer.style.transform = 'translate(-50%, -50%)';
+                editorContainer.style.zIndex = '1000';
+                editorContainer.style.backgroundColor = '#1e1e1e';
+                editorContainer.style.padding = '20px';
+                editorContainer.style.borderRadius = '5px';
+                editorContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+
+                // Add toolbar with appropriate buttons
+                const toolbar = document.createElement('div');
+                toolbar.style.marginBottom = '10px';
+                toolbar.style.display = 'flex';
+                toolbar.style.justifyContent = 'space-between';
+                toolbar.style.alignItems = 'center';
+
+                if (type === 'javascript' || nodeId === 'text-view') {
+                    const runButton = document.createElement('button');
+                    runButton.textContent = '▶ Run (Ctrl+Enter)';
+                    runButton.style.padding = '5px 10px';
+                    runButton.style.backgroundColor = '#4CAF50';
+                    runButton.style.color = 'white';
+                    runButton.style.border = 'none';
+                    runButton.style.borderRadius = '3px';
+                    runButton.style.cursor = 'pointer';
+                    
+                    runButton.onclick = () => {
+                        try {
+                            const code = this._editor.getValue();
+                            if (nodeId === 'text-view') {
+                                // Update the text view code
+                                const event = new CustomEvent('textViewCodeUpdated', { 
+                                    detail: { code },
+                                    bubbles: true,
+                                    composed: true
+                                });
+                                document.dispatchEvent(event);
+                            } else {
+                                this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                            }
+                        } catch (error) {
+                            console.error('Error executing code:', error);
                         }
-                },
-                'Cmd-Enter': (cm) => {
-                    const code = cm.getValue();
-                        if (nodeId === 'text-view') {
-                            const event = new CustomEvent('textViewCodeUpdated', { 
-                                detail: { code },
-                                bubbles: true,
-                                composed: true
-                            });
-                            document.dispatchEvent(event);
-                        } else {
-                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                    };
+                    toolbar.appendChild(runButton);
+                } else if (type === 'webgl' || type === 'webgpu') {
+                    const saveButton = document.createElement('button');
+                    saveButton.textContent = '💾 Save (Ctrl+S)';
+                    saveButton.style.padding = '5px 10px';
+                    saveButton.style.backgroundColor = '#4CAF50';
+                    saveButton.style.color = 'white';
+                    saveButton.style.border = 'none';
+                    saveButton.style.borderRadius = '3px';
+                    saveButton.style.cursor = 'pointer';
+                    
+                    saveButton.onclick = () => {
+                        try {
+                            const code = this._editor.getValue();
+                            this.saveChanges(nodeId);
+                        } catch (error) {
+                            console.error('Error saving changes:', error);
                         }
-                },
-                'Esc': () => this.closeEditor(nodeId)
-            });
-        } else {
-                this._editor.setOption('extraKeys', {
-                'Esc': () => this.closeEditor(nodeId)
-            });
-        }
+                    };
+                    toolbar.appendChild(saveButton);
+                }
 
-        // Remove the save button for WebGL nodes since we're compiling in real-time
-        if (type === 'webgl' || type === 'webgpu') {
-            toolbar.style.display = 'none';
-        }
+                editorContainer.appendChild(toolbar);
 
-        // Add close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.style.position = 'absolute';
-        closeButton.style.right = '10px';
-        closeButton.style.top = '10px';
-        closeButton.style.border = 'none';
-        closeButton.style.background = 'none';
-        closeButton.style.color = 'white';
-        closeButton.style.fontSize = '20px';
-        closeButton.style.cursor = 'pointer';
-        closeButton.onclick = () => this.closeEditor(nodeId);
-        editorContainer.appendChild(closeButton);
+                // Create editor div
+                const editorDiv = document.createElement('div');
+                editorDiv.style.width = '600px';
+                editorDiv.style.height = '400px';
+                editorContainer.appendChild(editorDiv);
 
-        // Store editor reference
-            this._activeEditor = {
-            container: editorContainer,
-                editor: this._editor,
-            nodeId,
-            type
-        };
+                document.body.appendChild(editorContainer);
 
-        // Add click-away listener
-        const clickAwayListener = (e) => {
-            if (!editorContainer.contains(e.target) && 
-                !e.target.closest('.edit-button') && 
-                !e.target.closest('.expand-button')) {
-                this.closeEditor(nodeId);
-                document.removeEventListener('mousedown', clickAwayListener);
+                // Initialize CodeMirror
+                this._editor = CodeMirror(editorDiv, {
+                    value: nodeId === 'text-view' ? this._editor?.getValue() || '' : (nodeData?.code || ''),
+                    mode: type === 'webgl' ? 'x-shader/x-fragment' : 'javascript',
+                    theme: 'monokai',
+                    lineNumbers: true,
+                    autoCloseBrackets: true,
+                    matchBrackets: true,
+                    indentUnit: 4
+                });
+
+                // Add real-time compilation for WebGL nodes
+                if (type === 'webgl' || type === 'webgpu') {
+                    this._editor.on('change', () => {
+                        try {
+                            const code = this._editor.getValue();
+                            if (type === 'webgl') {
+                                this.nodeSystem.shaderManager.updateShader(nodeId, code);
+                            } else if (type === 'webgpu') {
+                                this.nodeSystem.webgpuManager.updateShader(nodeId, code);
+                            }
+                        } catch (error) {
+                            console.error('Error updating shader:', error);
+                        }
+                    });
+                }
+
+                // Add appropriate keyboard shortcuts
+                if (type === 'javascript' || nodeId === 'text-view') {
+                    this._editor.setOption('extraKeys', {
+                        'Ctrl-Enter': (cm) => {
+                            try {
+                                const code = cm.getValue();
+                                if (nodeId === 'text-view') {
+                                    const event = new CustomEvent('textViewCodeUpdated', { 
+                                        detail: { code },
+                                        bubbles: true,
+                                        composed: true
+                                    });
+                                    document.dispatchEvent(event);
+                                } else {
+                                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                                }
+                            } catch (error) {
+                                console.error('Error executing code (Ctrl+Enter):', error);
+                            }
+                        },
+                        'Cmd-Enter': (cm) => {
+                            try {
+                                const code = cm.getValue();
+                                if (nodeId === 'text-view') {
+                                    const event = new CustomEvent('textViewCodeUpdated', { 
+                                        detail: { code },
+                                        bubbles: true,
+                                        composed: true
+                                    });
+                                    document.dispatchEvent(event);
+                                } else {
+                                    this.nodeSystem.javaScriptNodeManager.executeCode(nodeId, code);
+                                }
+                            } catch (error) {
+                                console.error('Error executing code (Cmd+Enter):', error);
+                            }
+                        },
+                        'Esc': () => this.closeEditor(nodeId)
+                    });
+                } else {
+                    this._editor.setOption('extraKeys', {
+                        'Esc': () => this.closeEditor(nodeId)
+                    });
+                }
+
+                // Remove the save button for WebGL nodes since we're compiling in real-time
+                if (type === 'webgl' || type === 'webgpu') {
+                    toolbar.style.display = 'none';
+                }
+
+                // Add close button
+                const closeButton = document.createElement('button');
+                closeButton.textContent = '×';
+                closeButton.style.position = 'absolute';
+                closeButton.style.right = '10px';
+                closeButton.style.top = '10px';
+                closeButton.style.border = 'none';
+                closeButton.style.background = 'none';
+                closeButton.style.color = 'white';
+                closeButton.style.fontSize = '20px';
+                closeButton.style.cursor = 'pointer';
+                closeButton.onclick = () => this.closeEditor(nodeId);
+                editorContainer.appendChild(closeButton);
+
+                // Store editor reference
+                this._activeEditor = {
+                    container: editorContainer,
+                    editor: this._editor,
+                    nodeId,
+                    type
+                };
+
+                // Add click-away listener
+                const clickAwayListener = (e) => {
+                    if (!editorContainer.contains(e.target) && 
+                        !e.target.closest('.edit-button') && 
+                        !e.target.closest('.expand-button')) {
+                        this.closeEditor(nodeId);
+                        document.removeEventListener('mousedown', clickAwayListener);
+                    }
+                };
+                document.addEventListener('mousedown', clickAwayListener);
+
+                // Refresh editor to ensure proper rendering
+                setTimeout(() => this._editor.refresh(), 0);
             }
-        };
-        document.addEventListener('mousedown', clickAwayListener);
-
-        // Refresh editor to ensure proper rendering
-            setTimeout(() => this._editor.refresh(), 0);
+        } catch (error) {
+            console.error('Error in toggleEditor:', error);
         }
     }
 
     showEditor(nodeId, code, type) {
-        const node = document.getElementById(nodeId);
-        if (!node) return;
-
         this._activeNodeId = nodeId;
-        this._isExpanded = true;
-        this._isDirty = false;
-
-        this._editor.setOption('mode', type === 'webgl' ? 'x-shader/x-fragment' : 'javascript');
-        this._editor.setValue(code);
+        this._activeEditor = type;
+        this.currentCode = code;
         
-        const editorElement = document.getElementById('editor');
-        if (editorElement) {
-            editorElement.style.display = 'block';
-            
-            // Check if node is expanded
-            if (node.classList.contains('expanded')) {
-                const nodeRect = node.getBoundingClientRect();
-                editorElement.style.position = 'fixed';
-                editorElement.style.left = `${nodeRect.left + (nodeRect.width - editorElement.offsetWidth) / 2}px`;
-                editorElement.style.top = `${nodeRect.top + (nodeRect.height - editorElement.offsetHeight) / 2}px`;
-                editorElement.classList.add('expanded');
-            } else {
-                editorElement.classList.remove('expanded');
-                const nodeRect = node.getBoundingClientRect();
-                editorElement.style.position = 'absolute';
-                editorElement.style.left = `${nodeRect.right + 10}px`;
-                editorElement.style.top = `${nodeRect.top}px`;
-            }
-            
-            this._editor.refresh();
+        const container = document.getElementById('editor-container');
+        if (!container) return;
 
-            // Add Shift+Enter handler for JavaScript nodes
-            if (type === 'javascript') {
-                this._editor.setOption('extraKeys', {
-                    'Shift-Enter': (cm) => {
-                        this.updateJavaScriptNode(nodeId, cm.getValue());
-                        this.updateEditorContent(); // Update toggle view editor
-                    },
-                    'Esc': (cm) => this.hideEditor()
-                });
-            } else {
-                this._editor.setOption('extraKeys', {
-                    'Ctrl-S': (cm) => {
-                        this.saveChanges(nodeId);
-                        this.updateEditorContent(); // Update toggle view editor
-                    },
-                    'Cmd-S': (cm) => {
-                        this.saveChanges(nodeId);
-                        this.updateEditorContent(); // Update toggle view editor
-                    },
-                    'Esc': (cm) => this.hideEditor()
-                });
-            }
+        container.style.display = 'block';
+        this._editor.setValue(code);
+        this._editor.refresh();
+        this._editor.focus();
+
+        // Update uniforms for WebGL nodes
+        if (type === 'webgl') {
+            this._uniforms = this.extractUniforms(code);
+            this.updateUniformControls();
+        } else {
+            this._uniformControls.style.display = 'none';
         }
     }
 
@@ -760,60 +785,58 @@ class EditorManager {
     handleEditorChange() {
         if (this._isUpdating) return;
         
-        try {
-            const code = this._editor.getValue();
-            this._lastSavedContent = code;
-            
-            // Create a sandboxed environment with access to tile manipulation functions
-            const sandbox = {
-                nodes: this.nodeSystem.nodes,
-                getTile: (id) => {
-                    const tile = document.getElementById(id);
-                    const tileData = this.nodeSystem.nodes.get(id);
-                    return {
-                        element: tile,
-                        data: tileData,
-                        setPosition: (x, y) => {
-                            if (tile) {
-                                tile.style.left = `${x}px`;
-                                tile.style.top = `${y}px`;
-                            }
-                            if (tileData) {
-                                tileData.position = { x, y };
-                            }
-                        },
-                        setCode: (code) => {
-                            if (tileData) {
-                                tileData.code = code;
-                                if (tileData.type === 'webgl') {
-                                    this.nodeSystem.shaderManager.updateShader(id, code);
-                                } else if (tileData.type === 'webgpu') {
-                                    this.nodeSystem.webgpuManager.updateShader(id, code);
-                                } else if (tileData.type === 'javascript') {
-                                    this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
-                                }
-                            }
-                        },
-                        getConnections: () => {
-                            return Array.from(this.nodeSystem.connectionManager.connections.entries())
-                                .filter(([_, conn]) => conn.from === id || conn.to === id)
-                                .map(([_, conn]) => ({
-                                    from: conn.from,
-                                    to: conn.to
-                                }));
-                        }
-                    };
-                }
-            };
+        const newContent = this._editor.getValue();
+        this._editorContent = newContent;
+        this._isDirty = true;
 
-            const func = new Function('sandbox', `
-                with(sandbox) {
-                    ${code}
+        // If this is a WebGL node, update uniforms from the code
+        if (this._activeEditor === 'webgl') {
+            this.updateUniformsFromCode(newContent);
+        }
+    }
+
+    updateUniformsFromCode(code) {
+        const node = this.nodeSystem.nodes.get(this._activeNodeId);
+        if (!node || !node.data || !node.data.gl) return;
+
+        const gl = node.data.gl;
+        const program = node.data.program;
+        gl.useProgram(program);
+
+        // Extract uniform declarations and values
+        const uniformRegex = /uniform\s+(\w+)\s+(\w+)\s*=\s*([^;]+);/g;
+        let match;
+        while ((match = uniformRegex.exec(code)) !== null) {
+            const type = match[1];
+            const name = match[2];
+            const valueStr = match[3].trim();
+            
+            const uniformLocation = gl.getUniformLocation(program, name);
+            if (!uniformLocation) continue;
+
+            try {
+                // Parse the value based on type
+                if (type === 'float') {
+                    const value = parseFloat(valueStr);
+                    if (!isNaN(value)) {
+                        gl.uniform1f(uniformLocation, value);
+                    }
+                } else if (type.startsWith('vec')) {
+                    const count = parseInt(type[3]);
+                    const values = valueStr.replace(/[()]/g, '').split(',').map(v => parseFloat(v.trim()));
+                    if (values.length === count && !values.some(isNaN)) {
+                        if (count === 2) {
+                            gl.uniform2f(uniformLocation, values[0], values[1]);
+                        } else if (count === 3) {
+                            gl.uniform3f(uniformLocation, values[0], values[1], values[2]);
+                        } else if (count === 4) {
+                            gl.uniform4f(uniformLocation, values[0], values[1], values[2], values[3]);
+                        }
+                    }
                 }
-            `);
-            func(sandbox);
-        } catch (error) {
-            console.error('Error executing code:', error);
+            } catch (e) {
+                console.warn(`Failed to update uniform ${name}:`, e);
+            }
         }
     }
 
@@ -867,11 +890,9 @@ class EditorManager {
     const tile = getTile('${id}');
     if (!tile) return;
     
-    // Update position
+    // Update position and code
     tile.setPosition(properties.position.x, properties.position.y);
-    
-    // Update code
-    tile.setCode(\`${(tileData.code || '').replace(/`/g, '\\`')}\`);
+    tile.setCode(properties.code);
     
     // Update connections
     const currentConnections = tile.getConnections();
@@ -934,64 +955,112 @@ createAllTiles();`;
         this.updateEditorContent();
     }
 
-    // Add a method to handle code changes in the editor
-    handleEditorChange() {
-        if (this._isUpdating) return;
-        
-        try {
-            const code = this._editor.getValue();
-            this._lastSavedContent = code;
-            
-            // Create a sandboxed environment with access to tile manipulation functions
-            const sandbox = {
-                nodes: this.nodeSystem.nodes,
-                getTile: (id) => {
-                    const tile = document.getElementById(id);
-                    const tileData = this.nodeSystem.nodes.get(id);
-                    return {
-                        element: tile,
-                        data: tileData,
-                        setPosition: (x, y) => {
-                            if (tile) {
-                                tile.style.left = `${x}px`;
-                                tile.style.top = `${y}px`;
-                            }
-                            if (tileData) {
-                                tileData.position = { x, y };
-                            }
-                        },
-                        setCode: (code) => {
-                            if (tileData) {
-                                tileData.code = code;
-                                if (tileData.type === 'webgl') {
-                                    this.nodeSystem.shaderManager.updateShader(id, code);
-                                } else if (tileData.type === 'webgpu') {
-                                    this.nodeSystem.webgpuManager.updateShader(id, code);
-                                } else if (tileData.type === 'javascript') {
-                                    this.nodeSystem.javaScriptNodeManager.executeCode(id, code);
-                                }
-                            }
-                        },
-                        getConnections: () => {
-                            return Array.from(this.nodeSystem.connectionManager.connections.entries())
-                                .filter(([_, conn]) => conn.from === id || conn.to === id)
-                                .map(([_, conn]) => ({
-                                    from: conn.from,
-                                    to: conn.to
-                                }));
-                        }
-                    };
-                }
-            };
+    extractUniforms(shaderCode) {
+        const uniformRegex = /uniform\s+(\w+)\s+(\w+);/g;
+        const matches = Array.from(shaderCode.matchAll(uniformRegex));
+        return matches.map(match => ({
+            name: match[2],
+            type: match[1],
+            value: 0
+        }));
+    }
 
-            const func = new Function('sandbox', `
-                with(sandbox) {
-                    ${code}
+    updateUniformControls() {
+        if (!this._uniformControls) return;
+
+        // Clear existing controls
+        this._uniformControls.innerHTML = '';
+        this._uniformControls.style.display = 'none';
+
+        if (this._uniforms.length === 0) return;
+
+        // Create title
+        const title = document.createElement('h3');
+        title.textContent = 'Uniforms';
+        title.style.color = 'white';
+        title.style.marginBottom = '10px';
+        this._uniformControls.appendChild(title);
+
+        // Create grid container
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        grid.style.gap = '10px';
+        this._uniformControls.appendChild(grid);
+
+        // Add controls for each uniform
+        this._uniforms.forEach((uniform, index) => {
+            const control = document.createElement('div');
+            control.style.display = 'flex';
+            control.style.flexDirection = 'column';
+            control.style.gap = '5px';
+
+            const label = document.createElement('label');
+            label.textContent = `${uniform.name} (${uniform.type})`;
+            label.style.color = 'white';
+            control.appendChild(label);
+
+            if (uniform.type === 'float') {
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = '0';
+                slider.max = '1';
+                slider.step = '0.01';
+                slider.value = uniform.value;
+                slider.oninput = (e) => this.handleUniformChange(index, parseFloat(e.target.value));
+                control.appendChild(slider);
+            } else if (uniform.type.startsWith('vec')) {
+                const count = parseInt(uniform.type[3]);
+                const container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.gap = '5px';
+
+                for (let i = 0; i < count; i++) {
+                    const slider = document.createElement('input');
+                    slider.type = 'range';
+                    slider.min = '0';
+                    slider.max = '1';
+                    slider.step = '0.01';
+                    slider.value = uniform.value[i] || 0;
+                    slider.style.flex = '1';
+                    slider.oninput = (e) => {
+                        const newValue = [...(uniform.value || Array(count).fill(0))];
+                        newValue[i] = parseFloat(e.target.value);
+                        this.handleUniformChange(index, newValue);
+                    };
+                    container.appendChild(slider);
                 }
-            `);
-            func(sandbox);
-        } catch (error) {
-            console.error('Error executing code:', error);
+                control.appendChild(container);
+            }
+
+            grid.appendChild(control);
+        });
+
+        this._uniformControls.style.display = 'block';
+    }
+
+    handleUniformChange(index, value) {
+        const uniform = this._uniforms[index];
+        uniform.value = value;
+
+        const node = this.nodeSystem.nodes.get(this._activeNodeId);
+        if (!node || !node.data || !node.data.gl) return;
+
+        const gl = node.data.gl;
+        const uniformLocation = gl.getUniformLocation(node.data.program, uniform.name);
+        if (!uniformLocation) return;
+
+        gl.useProgram(node.data.program);
+        if (Array.isArray(value)) {
+            if (value.length === 2) {
+                gl.uniform2f(uniformLocation, value[0], value[1]);
+            } else if (value.length === 3) {
+                gl.uniform3f(uniformLocation, value[0], value[1], value[2]);
+            } else if (value.length === 4) {
+                gl.uniform4f(uniformLocation, value[0], value[1], value[2], value[3]);
+            }
+        } else {
+            gl.uniform1f(uniformLocation, value);
         }
     }
 }

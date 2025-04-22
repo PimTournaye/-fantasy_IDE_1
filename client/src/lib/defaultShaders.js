@@ -1173,6 +1173,8 @@ const _fragmentShaderG = `     precision mediump float;
             uniform float u_time;
             uniform vec2 u_resolution;
             uniform vec2 u_mouse;
+            uniform vec2 u_editorMouse;
+            uniform float u_useEditorMouse;
             uniform sampler2D u_prevFrame;
             uniform vec4 u_spectrum;
 
@@ -1181,8 +1183,12 @@ const _fragmentShaderG = `     precision mediump float;
                 vec2 uvp = gl_FragCoord.xy / u_resolution;
                                 uv -= 0.5;
                 uv*=2.;
+                
+                // Choose which mouse position to use based on the toggle
+                vec2 activeMouse = mix(u_mouse, u_editorMouse, u_useEditorMouse);
+                
                 // Make mouse effect more visible
-                float mouseDist = distance(uvp, u_mouse);
+                float mouseDist = distance(uvp, activeMouse);
                 float mouseGlow = 0.1 / mouseDist;
                 
                 // Get previous frame

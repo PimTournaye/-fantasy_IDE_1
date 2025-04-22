@@ -265,7 +265,7 @@ function processCheckboxGrid(grid) {
     getDefaultShaderCode() {
       // Get a random shader from the array
       const randomIndex = Math.floor(Math.random() * fragmentShaders.length);
-      return fragmentShaders[randomIndex];
+      return fragmentShaders[6];//randomIndex];
   }
 
 

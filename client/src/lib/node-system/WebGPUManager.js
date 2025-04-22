@@ -99,7 +99,8 @@ class WebGPUManager {
 
         // Add click handler for expanding
         node.addEventListener('click', (e) => {
-            if (e.target.closest('.header-buttons')) return;
+            // Don't trigger on header buttons or header area click
+            if (e.target.closest('.header-buttons') || e.target.closest('.node-header')) return;
             
             const isExpanded = node.classList.contains('expanded');
             if (!isExpanded) {

@@ -68,8 +68,8 @@ class ShaderManager {
 
         // Add click handler for expanding
         node.addEventListener('click', (e) => {
-            // Don't trigger on edit button or header buttons click
-            if (e.target.closest('.header-buttons')) return;
+            // Don't trigger on edit button, header buttons, or header area click
+            if (e.target.closest('.header-buttons') || e.target.closest('.node-header')) return;
             
             const isExpanded = node.classList.contains('expanded');
             if (!isExpanded) {
@@ -454,7 +454,7 @@ class ShaderManager {
                     shaderCode.indexOf(';', uniformIndex) + 1 : 
                     shaderCode.indexOf('void main()');
                 
-                const webcamUniform = '\nuniform sampler2D u_webcam;\n// vec4 s = texture2D(u_webcam,  vec2(gl_FragCoord.x/u_resolution.x,1.-(gl_FragCoord.y/u_resolution.y) * (u_resolution.x/u_resolution.y)));';
+                const webcamUniform = '\nuniform sampler2D u_webcam;\n//vec4 s = texture2D(u_webcam,  vec2(gl_FragCoord.x/u_resolution.x  * (u_resolution.y/u_resolution.x) ,1.-(gl_FragCoord.y/u_resolution.y)));';
                 shaderCode = shaderCode.slice(0, insertPosition) + 
                            webcamUniform +
                            shaderCode.slice(insertPosition);

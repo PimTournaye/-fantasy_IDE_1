@@ -182,7 +182,7 @@ class AINodeManager {
                 <span>AI Assistant</span>
                 <div class="header-buttons">
                     <button class="expand-button">Edit</button>
-                    <button class="mode-toggle-button" title="Toggle between code replacement and chat modes">💬</button>
+                    <button class="mode-toggle-button" title="Toggle between modes">💬</button>
                 </div>
             </div>
             <div class="node-content">
@@ -190,18 +190,22 @@ class AINodeManager {
                     <textarea class="ai-input" placeholder="Type your message here..."></textarea>
                     <button class="ai-send-button">Send</button>
                 </div>
-                <div class="ai-response" style="
-                    margin-top: 10px;
-                    padding: 10px;
-                    background: #1e1e1e;
-                    color: #fff;
-                    border-radius: 4px;
-                    min-height: 100px;
-                    max-height: 200px;
-                    overflow-y: auto;
-                    white-space: pre-wrap;
-                    font-family: monospace;
-                "></div>
+                <div class="ai-response-container">
+                    <div class="ai-response" style="
+                        margin-top: 10px;
+                        padding: 10px;
+                        background: #1e1e1e;
+                        color: #fff;
+                        border-radius: 4px;
+                        min-height: 100px;
+                        max-height: 200px;
+                        overflow-y: auto;
+                        white-space: pre-wrap;
+                        font-family: monospace;
+                        user-select: text;
+                    "></div>
+                    <button class="copy-button" title="Copy to clipboard">📋</button>
+                </div>
             </div>
             <div class="node-ports">
                 <div class="input-port"></div>
@@ -214,6 +218,7 @@ class AINodeManager {
         const sendButton = node.querySelector('.ai-send-button');
         const responseDiv = node.querySelector('.ai-response');
         const modeToggle = node.querySelector('.mode-toggle-button');
+        const copyButton = node.querySelector('.copy-button');
         
         // Add mode state to node data
         const nodeData = this.nodeSystem.nodes.get(node.id);
@@ -232,9 +237,35 @@ class AINodeManager {
         // Add mode toggle handler
         modeToggle.addEventListener('click', () => {
             const nodeData = this.nodeSystem.nodes.get(node.id);
-            nodeData.mode = nodeData.mode === 'code' ? 'chat' : 'code';
-            modeToggle.textContent = nodeData.mode === 'code' ? '💬' : '✏️';
-            modeToggle.title = nodeData.mode === 'code' ? 'Chat mode (click to switch to code replacement)' : 'Code replacement mode (click to switch to chat)';
+            // Cycle through modes: chat -> code -> toggle view -> chat
+            if (nodeData.mode === 'chat') {
+                nodeData.mode = 'code';
+                modeToggle.textContent = '✏️';
+                modeToggle.title = 'Code replacement mode (click to switch to toggle view context)';
+            } else if (nodeData.mode === 'code') {
+                nodeData.mode = 'toggle';
+                modeToggle.textContent = '📋';
+                modeToggle.title = 'Toggle view context mode (click to switch to chat)';
+            } else {
+                nodeData.mode = 'chat';
+                modeToggle.textContent = '💬';
+                modeToggle.title = 'Chat mode (click to switch to code replacement)';
+            }
+        });
+
+        // Add copy button functionality
+        copyButton.addEventListener('click', () => {
+            const textToCopy = responseDiv.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // Show feedback
+                const originalText = copyButton.textContent;
+                copyButton.textContent = '✓';
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                }, 1000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
         });
 
         sendButton.addEventListener('click', () => {
@@ -253,7 +284,13 @@ class AINodeManager {
                 const nodeData = this.nodeSystem.nodes.get(nodeId);
                 let context = '';
                 
-                if (nodeData && nodeData.connectedCode) {
+                if (nodeData.mode === 'toggle') {
+                    // Get the toggle view code from the editor manager
+                    const editorContent = this.nodeSystem.editorManager._editorContent;
+                    if (editorContent) {
+                        context = `Here is the current state of all tiles in the system:\n${editorContent}`;
+                    }
+                } else if (nodeData && nodeData.connectedCode) {
                     console.log('AINodeManager: Using stored code from connected node:', nodeData.connectedNodeId);
                     context = `Here is the ${nodeData.connectedNodeType} code that needs to be modified:\n${nodeData.connectedCode}`;
                 } else {
@@ -265,6 +302,10 @@ class AINodeManager {
                 if (nodeData.mode === 'code') {
                     fullMessage = context ? 
                         `${context}\n\nPlease ${message} this code. Return ONLY the modified code, also include all the code so it can compile, dont skip any code that is essential like percision, starting with the code and ending with the code. Do not include any explanations or other text.` :
+                        `${message}\n\nPlease return ONLY the code, starting with the code and ending with the code. Do not include any explanations or other text.`;
+                } else if (nodeData.mode === 'toggle') {
+                    fullMessage = context ? 
+                        `${context}\n\n${message}\n\nPlease return ONLY the code, starting with the code and ending with the code. Do not include any explanations or other text.` :
                         `${message}\n\nPlease return ONLY the code, starting with the code and ending with the code. Do not include any explanations or other text.`;
                 } else {
                     // Chat mode - just send the message with context if available
