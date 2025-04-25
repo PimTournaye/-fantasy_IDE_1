@@ -33,10 +33,8 @@ npm run dev:all
 
 ## Tech Stack 🧙‍♂️
 
-- Frontend: TypeScript, Vite, TailwindCSS
+- Frontend: TypeScript
 - Backend: Express, TypeScript
-- Database: PostgreSQL with Drizzle ORM
-- UI Components: Radix UI, Shadcn
 - Code Editor: CodeMirror
 - Real-time: Socket.IO
 
