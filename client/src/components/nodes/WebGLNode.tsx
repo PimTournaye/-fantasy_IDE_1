@@ -1,5 +1,6 @@
-import React, { memo, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useEffect, useRef, useCallback, useState } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
+import { connectionManager } from '../../lib/ConnectionManager.ts';
 
 interface WebGLNodeData {
   code: string;
@@ -12,6 +13,31 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const [dynamicUniforms, setDynamicUniforms] = useState<Record<string, any>>({});
+
+  // Listen for connection data updates
+  useEffect(() => {
+    const handleNodeDataUpdate = (event: CustomEvent) => {
+      const { sourceNodeId, sourceType, data } = event.detail;
+      console.log(`WebGL node ${id} received data from ${sourceType} node ${sourceNodeId}:`, data);
+      
+      // Update dynamic uniforms based on source type
+      setDynamicUniforms(prev => ({
+        ...prev,
+        [`u_${sourceType}_data`]: data
+      }));
+    };
+
+    // Add event listener to this node's element
+    const nodeElement = document.querySelector(`[data-id="${id}"]`);
+    if (nodeElement) {
+      nodeElement.addEventListener('nodeDataUpdate', handleNodeDataUpdate as EventListener);
+      
+      return () => {
+        nodeElement.removeEventListener('nodeDataUpdate', handleNodeDataUpdate as EventListener);
+      };
+    }
+  }, [id]);
 
   // Vertex shader source (same as original system)
   const vertexShaderSource = `
@@ -20,6 +46,41 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
       gl_Position = vec4(position, 0.0, 1.0);
     }
   `;
+
+  // Enhanced shader code with dynamic uniforms for connections
+  const getEnhancedShaderCode = useCallback((baseCode: string) => {
+    let enhancedCode = baseCode;
+    const connections = connectionManager.getInputConnections(id);
+    
+    // Add uniforms for connected inputs
+    connections.forEach(connection => {
+      const sourceType = connection.sourceNode.type;
+      switch (sourceType) {
+        case 'webcam':
+          if (!enhancedCode.includes('uniform sampler2D u_webcam;')) {
+            enhancedCode = 'uniform sampler2D u_webcam;\n' + enhancedCode;
+          }
+          break;
+        case 'webgl':
+          if (!enhancedCode.includes('uniform sampler2D u_texture;')) {
+            enhancedCode = 'uniform sampler2D u_texture;\n' + enhancedCode;
+          }
+          break;
+        case 'javascript':
+          if (!enhancedCode.includes('uniform vec4 u_javascript_data;')) {
+            enhancedCode = 'uniform vec4 u_javascript_data;\n' + enhancedCode;
+          }
+          break;
+        case 'ai':
+          if (!enhancedCode.includes('uniform vec4 u_ai_data;')) {
+            enhancedCode = 'uniform vec4 u_ai_data;\n' + enhancedCode;
+          }
+          break;
+      }
+    });
+    
+    return enhancedCode;
+  }, [id]);
 
   const createShader = useCallback((gl: WebGLRenderingContext, type: number, source: string) => {
     const shader = gl.createShader(type);
@@ -72,7 +133,7 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
     
     gl.useProgram(program);
     
-    // Set uniforms
+    // Set standard uniforms
     const timeLocation = gl.getUniformLocation(program, 'u_time');
     const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
     
@@ -83,6 +144,56 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
     if (resolutionLocation) {
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
     }
+    
+    // Set dynamic uniforms from connections
+    const connections = connectionManager.getInputConnections(id);
+    connections.forEach(connection => {
+      const sourceType = connection.sourceNode.type;
+      const sourceId = connection.sourceNode.id;
+      
+      switch (sourceType) {
+        case 'webcam':
+          // Handle webcam texture input
+          const webcamLocation = gl.getUniformLocation(program, 'u_webcam');
+          if (webcamLocation) {
+            // This would bind the webcam video texture
+            // For now, we'll log that it would happen
+            console.log(`Would bind webcam texture from node ${sourceId}`);
+          }
+          break;
+        case 'webgl':
+          // Handle WebGL texture input
+          const textureLocation = gl.getUniformLocation(program, 'u_texture');
+          if (textureLocation) {
+            console.log(`Would bind WebGL texture from node ${sourceId}`);
+          }
+          break;
+        case 'javascript':
+          // Handle JavaScript data input
+          const jsDataLocation = gl.getUniformLocation(program, 'u_javascript_data');
+          if (jsDataLocation && dynamicUniforms.u_javascript_data) {
+            gl.uniform4f(jsDataLocation, 
+              dynamicUniforms.u_javascript_data.x || 0,
+              dynamicUniforms.u_javascript_data.y || 0,
+              dynamicUniforms.u_javascript_data.z || 0,
+              dynamicUniforms.u_javascript_data.w || 0
+            );
+          }
+          break;
+        case 'ai':
+          // Handle AI data input
+          const aiDataLocation = gl.getUniformLocation(program, 'u_ai_data');
+          if (aiDataLocation && dynamicUniforms.u_ai_data) {
+            gl.uniform4f(aiDataLocation,
+              dynamicUniforms.u_ai_data.x || 0,
+              dynamicUniforms.u_ai_data.y || 0,
+              dynamicUniforms.u_ai_data.z || 0,
+              dynamicUniforms.u_ai_data.w || 0
+            );
+          }
+          break;
+      }
+    });
     
     // Set up vertex buffer
     const positionBuffer = gl.createBuffer();
@@ -103,7 +214,7 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
     
     // Continue animation
     animationFrameRef.current = requestAnimationFrame(renderFrame);
-  }, []);
+  }, [id, dynamicUniforms]);
 
   // Initialize WebGL when component mounts or code changes
   useEffect(() => {
@@ -121,8 +232,9 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
 
     glRef.current = gl;
 
-    // Create shader program with current code
-    const program = createShaderProgram(gl, nodeData.code);
+    // Create shader program with enhanced code that includes connection uniforms
+    const enhancedCode = getEnhancedShaderCode(nodeData.code);
+    const program = createShaderProgram(gl, enhancedCode);
     if (program) {
       programRef.current = program;
       renderFrame();
@@ -133,7 +245,7 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [nodeData.code, createShaderProgram, renderFrame]);
+  }, [nodeData.code, createShaderProgram, renderFrame, getEnhancedShaderCode]);
 
   const handleEdit = useCallback(() => {
     nodeData.onEdit(id);

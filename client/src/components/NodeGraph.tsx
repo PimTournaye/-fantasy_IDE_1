@@ -19,6 +19,7 @@ import '@xyflow/react/dist/style.css';
 
 // Import our custom node types
 import { WebGLNode, WebcamNode, JavaScriptNode, AINode } from './nodes/index.ts';
+import { connectionManager } from '../lib/ConnectionManager.ts';
 
 // Define custom node types
 const nodeTypes = {
@@ -99,10 +100,61 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
   const onConnect = useCallback(
     (params: Connection) => {
       console.log('Connection created:', params);
-      setEdges((eds) => addEdge(params, eds));
+      
+      // Validate connection types
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+      
+      if (!sourceNode || !targetNode) return;
+      
+      // Define valid connection types
+      const validConnections: Record<string, string[]> = {
+        webcam: ['webgl'],      // Webcam can connect to WebGL nodes
+        webgl: ['webgl', 'javascript'], // WebGL can connect to other WebGL or JavaScript nodes
+        javascript: ['webgl'],   // JavaScript can connect to WebGL
+        ai: ['webgl']           // AI can connect to WebGL
+      };
+      
+      const sourceType = sourceNode.type || 'unknown';
+      const targetType = targetNode.type || 'unknown';
+      
+      if (!validConnections[sourceType]?.includes(targetType)) {
+        console.warn(`Invalid connection: ${sourceType} -> ${targetType}`);
+        return;
+      }
+      
+      // Create the edge
+      const newEdge: Edge = {
+        id: `${params.source}-${params.target}`,
+        source: params.source!,
+        target: params.target!,
+        sourceHandle: params.sourceHandle,
+        targetHandle: params.targetHandle,
+        type: 'default',
+        style: { stroke: '#ff69b4', strokeWidth: 2 }
+      };
+      
+      setEdges((eds) => addEdge(newEdge, eds));
+      
+      // Set up data flow between nodes using ConnectionManager
+      connectionManager.addConnection(sourceNode, targetNode, newEdge);
     },
-    [setEdges]
+    [setEdges, nodes]
   );
+
+  // Handle edge removal
+  const onEdgesDelete = useCallback((edges: Edge[]) => {
+    edges.forEach(edge => {
+      const connectionId = `${edge.source}-${edge.target}`;
+      connectionManager.removeConnection(connectionId);
+    });
+  }, []);
+
+  // Setup data flow between connected nodes (legacy function, now handled by ConnectionManager)
+  const setupDataFlow = useCallback((sourceNode: Node, targetNode: Node, edge: Edge) => {
+    // This is now handled by ConnectionManager.addConnection()
+    console.log(`Data flow setup delegated to ConnectionManager: ${sourceNode.type} -> ${targetNode.type}`);
+  }, []);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     console.log('Node clicked:', node.id);
@@ -140,6 +192,7 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onEdgesDelete={onEdgesDelete}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}

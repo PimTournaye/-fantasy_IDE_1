@@ -13,10 +13,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@codemirror/basic-setup": "^0.20.0",
-    "@codemirror/commands": "^6.8.0",
-    "@codemirror/lang-javascript": "^6.2.3",
-    "@codemirror/view": "^6.36.3",
+    "@codemirror/lang-javascript": "^6.2.4",
     "@hookform/resolvers": "^3.9.1",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",

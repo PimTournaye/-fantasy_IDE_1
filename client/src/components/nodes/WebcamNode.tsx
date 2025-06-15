@@ -59,20 +59,74 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
   }, [isStreaming, startWebcam, stopWebcam]);
 
   return (
-    <div className="webcam-node bg-gray-800 border-2 border-blue-500 rounded-lg shadow-lg shadow-blue-500/20">
+    <div style={{
+      background: '#1e1e1e',
+      border: '1px solid #ff69b4',
+      borderRadius: '12px',
+      boxShadow: '0 4px 6px rgba(255,105,180,0.2)',
+      userSelect: 'none',
+      fontFamily: 'Bianzhidai, monospace',
+      width: 'fit-content',
+      transition: 'all 0.3s ease-out'
+    }}>
       {/* Node header */}
-      <div className="node-header bg-gray-800 text-blue-500 px-3 py-2 border-b border-blue-500 flex justify-between items-center">
-        <span className="font-bold text-sm">WEBCAM</span>
-        <div className="flex gap-2">
+      <div style={{
+        background: '#1e1e1e',
+        color: '#ff69b4',
+        padding: '8px 12px',
+        borderRadius: '12px 12px 0 0',
+        cursor: 'move',
+        fontWeight: 'bold',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid #ff69b4'
+      }}>
+        <span>WEBCAM</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={toggleWebcam}
-            className="px-2 py-1 text-xs bg-gray-700 border border-blue-500 rounded hover:bg-blue-500 hover:text-gray-800 transition-colors"
+            style={{
+              background: '#1e1e1e',
+              border: '1px solid #ff69b4',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              cursor: 'pointer',
+              fontFamily: 'Bianzhidai, monospace',
+              fontSize: '12px',
+              color: '#ffffff'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#ff69b4';
+              e.currentTarget.style.color = '#1e1e1e';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#1e1e1e';
+              e.currentTarget.style.color = '#ffffff';
+            }}
           >
-            {isStreaming ? '⏹️' : '▶️'}
+            📹
           </button>
           <button
             onClick={handleEdit}
-            className="px-2 py-1 text-xs bg-gray-700 border border-blue-500 rounded hover:bg-blue-500 hover:text-gray-800 transition-colors"
+            style={{
+              background: '#1e1e1e',
+              border: '1px solid #ff69b4',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              cursor: 'pointer',
+              fontFamily: 'Bianzhidai, monospace',
+              fontSize: '12px',
+              color: '#ffffff'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#ff69b4';
+              e.currentTarget.style.color = '#1e1e1e';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#1e1e1e';
+              e.currentTarget.style.color = '#ffffff';
+            }}
           >
             Edit
           </button>
@@ -80,9 +134,20 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
       </div>
       
       {/* Video content */}
-      <div className="node-content p-3">
+      <div style={{ padding: '12px', position: 'relative' }}>
         {error ? (
-          <div className="w-80 h-60 bg-red-900/20 border border-red-500 rounded flex items-center justify-center text-red-400 text-sm">
+          <div style={{
+            width: '320px',
+            height: '240px',
+            background: 'rgba(139, 0, 0, 0.2)',
+            border: '1px solid #8b0000',
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ff6b6b',
+            fontSize: '14px'
+          }}>
             {error}
           </div>
         ) : (
@@ -91,7 +156,13 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
             autoPlay
             playsInline
             muted
-            className="w-80 h-60 border border-blue-500 rounded object-cover"
+            style={{
+              width: '320px',
+              height: '240px',
+              border: '1px solid #ff69b4',
+              borderRadius: '4px',
+              objectFit: 'cover'
+            }}
           />
         )}
       </div>
@@ -101,7 +172,13 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
         type="source" 
         position={Position.Right} 
         isConnectable={isConnectable}
-        className="w-3 h-3 bg-blue-500 border-2 border-blue-600"
+        style={{
+          width: '12px',
+          height: '12px',
+          background: '#ff69b4',
+          borderRadius: '50%',
+          border: '2px solid #ff69b4'
+        }}
       />
     </div>
   );
