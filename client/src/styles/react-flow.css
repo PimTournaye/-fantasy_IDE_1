@@ -1,28 +1,36 @@
-/* React Flow Dark Theme Customizations */
+/* React Flow Dark Theme - Matching Original Neon Pink Design */
+@font-face {
+  font-family: 'Bianzhidai';
+  src: url('./bianzhidai_COLR-RGB.otf') format('opentype');
+  font-display: swap;
+}
+
 .react-flow-dark-theme {
   background: #121212;
+  font-family: 'Bianzhidai', monospace;
 }
 
 .react-flow-dark-theme .react-flow__edge-path {
   stroke: #ff69b4;
-  stroke-width: 2px;
+  stroke-width: 3px;
 }
 
 .react-flow-dark-theme .react-flow__edge.selected .react-flow__edge-path {
   stroke: #ff8dc7;
-  stroke-width: 3px;
+  stroke-width: 4px;
 }
 
 .react-flow-dark-theme .react-flow__connection-path {
   stroke: #ff69b4;
-  stroke-width: 2px;
+  stroke-width: 3px;
 }
 
 .react-flow-dark-theme .react-flow__controls {
   background: #1e1e1e;
   border: 1px solid #ff69b4;
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 4px 6px rgba(255,105,180,0.2);
+  font-family: 'Bianzhidai', monospace;
 }
 
 .react-flow-dark-theme .react-flow__controls-button {
@@ -31,6 +39,7 @@
   border-bottom: 1px solid #333;
   color: #ff69b4;
   transition: all 0.2s;
+  font-family: 'Bianzhidai', monospace;
 }
 
 .react-flow-dark-theme .react-flow__controls-button:hover {
@@ -45,7 +54,7 @@
 .react-flow-dark-theme .react-flow__minimap {
   background: #1e1e1e;
   border: 1px solid #ff69b4;
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 4px 6px rgba(255,105,180,0.2);
 }
 
@@ -63,10 +72,11 @@
   fill: rgba(255, 105, 180, 0.3);
 }
 
-/* Node-specific styling that complements our custom nodes */
+/* Node-specific styling matching the original design */
 .react-flow__node {
   border-radius: 12px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Bianzhidai', monospace;
+  transition: all 0.3s ease-out;
 }
 
 .react-flow__node.selected {
@@ -79,7 +89,7 @@
   border-radius: 50%;
   border: 2px solid;
   background: currentColor;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .react-flow__handle:hover {
@@ -93,11 +103,37 @@
   box-shadow: 0 0 12px #ff69b4;
 }
 
-/* Panel styling */
+/* Panel styling with original neon theme */
 .react-flow__panel {
   background: rgba(30, 30, 30, 0.95);
   border: 1px solid #ff69b4;
-  border-radius: 8px;
+  border-radius: 12px;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 6px rgba(255,105,180,0.2);
+  font-family: 'Bianzhidai', monospace;
+}
+
+/* Custom button styling to match original */
+.neon-button {
+  font-family: 'Bianzhidai', monospace;
+  background: #1e1e1e;
+  color: #ff69b4;
+  border: 1px solid #ff69b4;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(255,105,180,0.2);
+}
+
+.neon-button:hover {
+  background: #ff69b4;
+  color: #1e1e1e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255,105,180,0.4);
+}
+
+.neon-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(255,105,180,0.2);
 }

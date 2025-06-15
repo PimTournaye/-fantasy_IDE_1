@@ -31,9 +31,12 @@ const nodeTypes = {
 interface NodeGraphProps {
   nodes: any[];
   onNodeSelect?: (node: any) => void;
+  onNodeUpdate?: (nodeId: string, data: any) => void;
 }
 
-// Initial setup for testing
+// Initial demo nodes
+
+// Initial demo nodes
 const initialNodes: Node[] = [
   {
     id: 'demo-webgl-1',
@@ -55,7 +58,7 @@ void main() {
     ) * 0.5 + 0.5;
     gl_FragColor = vec4(color, 1.0);
 }`,
-      onEdit: (nodeId: string) => console.log('Edit node:', nodeId)
+      onEdit: (nodeId: string) => console.log('Edit WebGL node:', nodeId)
     },
   },
   {
@@ -70,10 +73,28 @@ void main() {
 
 const initialEdges: Edge[] = [];
 
-export function NodeGraph({ nodes: externalNodes, onNodeSelect }: NodeGraphProps) {
+export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: NodeGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeIdCounter, setNodeIdCounter] = useState(1);
+
+  // Update node edit callbacks when onNodeSelect changes
+  useEffect(() => {
+    if (onNodeSelect) {
+      setNodes((currentNodes) => 
+        currentNodes.map(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            onEdit: (nodeId: string) => {
+              console.log('Edit node:', nodeId);
+              onNodeSelect(node);
+            }
+          }
+        }))
+      );
+    }
+  }, [onNodeSelect, setNodes]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -99,13 +120,18 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect }: NodeGraphProps
       },
       data: {
         code: type === 'webgl' ? `// New ${type} node\nprecision mediump float;\nvoid main() {\n    gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);\n}` : `// New ${type} node`,
-        onEdit: (nodeId: string) => console.log('Edit node:', nodeId),
+        onEdit: (nodeId: string) => {
+          const foundNode = nodes.find(n => n.id === nodeId);
+          if (foundNode && onNodeSelect) {
+            onNodeSelect(foundNode);
+          }
+        },
       },
     };
 
     setNodes((nds) => [...nds, newNode]);
     setNodeIdCounter(counter => counter + 1);
-  }, [setNodes]);
+  }, [setNodes, nodes, onNodeSelect]);
 
   return (
     <div className="w-full h-full bg-gray-950">
@@ -134,25 +160,25 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect }: NodeGraphProps
         <Panel position="top-right" className="space-x-2">
           <button
             onClick={() => addNode('webgl')}
-            className="px-4 py-2 bg-pink-500 text-white rounded hover:bg-pink-600 transition-colors"
+            className="neon-button"
           >
             + WebGL
           </button>
           <button
             onClick={() => addNode('webcam')}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            className="neon-button"
           >
             + Webcam
           </button>
           <button
             onClick={() => addNode('javascript')}
-            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
+            className="neon-button"
           >
             + JavaScript
           </button>
           <button
             onClick={() => addNode('ai')}
-            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+            className="neon-button"
           >
             + AI
           </button>

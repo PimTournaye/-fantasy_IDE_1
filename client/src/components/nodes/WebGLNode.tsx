@@ -145,31 +145,81 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
   }, []);
 
   return (
-    <div className="webgl-node bg-gray-800 border-2 border-pink-500 rounded-lg shadow-lg shadow-pink-500/20">
+    <div className="webgl-node" style={{
+      background: '#1e1e1e',
+      border: '1px solid #ff69b4',
+      borderRadius: '12px',
+      boxShadow: '0 4px 6px rgba(255,105,180,0.2)',
+      userSelect: 'none',
+      fontFamily: 'Bianzhidai, monospace',
+      width: 'fit-content',
+      transition: 'all 0.3s ease-out'
+    }}>
       {/* Input handle */}
       <Handle 
         type="target" 
         position={Position.Left} 
         isConnectable={isConnectable}
-        className="w-3 h-3 bg-pink-500 border-2 border-pink-600"
+        style={{
+          width: '12px',
+          height: '12px',
+          background: '#ff69b4',
+          borderRadius: '50%',
+          border: '2px solid #ff69b4'
+        }}
       />
       
       {/* Node header */}
-      <div className="node-header bg-gray-800 text-pink-500 px-3 py-2 border-b border-pink-500 flex justify-between items-center">
-        <span className="font-bold text-sm">WebGL</span>
+      <div style={{
+        background: '#1e1e1e',
+        color: '#ff69b4',
+        padding: '8px 12px',
+        borderRadius: '12px 12px 0 0',
+        cursor: 'move',
+        fontWeight: 'bold',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid #ff69b4'
+      }}>
+        <span>WebGL</span>
         <button
           onClick={handleEdit}
-          className="px-2 py-1 text-xs bg-gray-700 border border-pink-500 rounded hover:bg-pink-500 hover:text-gray-800 transition-colors"
+          style={{
+            background: '#1e1e1e',
+            border: '1px solid #ff69b4',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            fontFamily: 'Bianzhidai, monospace',
+            fontSize: '12px',
+            color: '#ffffff'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#ff69b4';
+            e.currentTarget.style.color = '#1e1e1e';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = '#1e1e1e';
+            e.currentTarget.style.color = '#ffffff';
+          }}
         >
           Edit
         </button>
       </div>
       
       {/* Canvas content */}
-      <div className="node-content p-3">
+      <div style={{ padding: '12px', position: 'relative' }}>
         <canvas
           ref={canvasRef}
-          className="w-80 h-60 border border-pink-500 rounded cursor-pointer"
+          style={{
+            width: '320px',
+            height: '240px',
+            border: '1px solid #ff69b4',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            objectFit: 'cover'
+          }}
           onClick={handleCanvasClick}
         />
       </div>
@@ -179,7 +229,13 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
         type="source" 
         position={Position.Right} 
         isConnectable={isConnectable}
-        className="w-3 h-3 bg-pink-500 border-2 border-pink-600"
+        style={{
+          width: '12px',
+          height: '12px',
+          background: '#ff69b4',
+          borderRadius: '50%',
+          border: '2px solid #ff69b4'
+        }}
       />
     </div>
   );
