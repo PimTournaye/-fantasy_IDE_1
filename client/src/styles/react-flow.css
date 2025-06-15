@@ -1,0 +1,103 @@
+/* React Flow Dark Theme Customizations */
+.react-flow-dark-theme {
+  background: #121212;
+}
+
+.react-flow-dark-theme .react-flow__edge-path {
+  stroke: #ff69b4;
+  stroke-width: 2px;
+}
+
+.react-flow-dark-theme .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #ff8dc7;
+  stroke-width: 3px;
+}
+
+.react-flow-dark-theme .react-flow__connection-path {
+  stroke: #ff69b4;
+  stroke-width: 2px;
+}
+
+.react-flow-dark-theme .react-flow__controls {
+  background: #1e1e1e;
+  border: 1px solid #ff69b4;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(255,105,180,0.2);
+}
+
+.react-flow-dark-theme .react-flow__controls-button {
+  background: #1e1e1e;
+  border: none;
+  border-bottom: 1px solid #333;
+  color: #ff69b4;
+  transition: all 0.2s;
+}
+
+.react-flow-dark-theme .react-flow__controls-button:hover {
+  background: #ff69b4;
+  color: #1e1e1e;
+}
+
+.react-flow-dark-theme .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow-dark-theme .react-flow__minimap {
+  background: #1e1e1e;
+  border: 1px solid #ff69b4;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(255,105,180,0.2);
+}
+
+.react-flow-dark-theme .react-flow__minimap-mask {
+  fill: rgba(255, 105, 180, 0.1);
+  stroke: #ff69b4;
+  stroke-width: 1;
+}
+
+.react-flow-dark-theme .react-flow__background {
+  background: #121212;
+}
+
+.react-flow-dark-theme .react-flow__background-pattern-dots {
+  fill: rgba(255, 105, 180, 0.3);
+}
+
+/* Node-specific styling that complements our custom nodes */
+.react-flow__node {
+  border-radius: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.react-flow__node.selected {
+  box-shadow: 0 0 0 2px #ff69b4, 0 0 20px rgba(255, 105, 180, 0.4);
+}
+
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: currentColor;
+  transition: all 0.2s;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px currentColor;
+}
+
+.react-flow__handle-connecting {
+  background: #ff69b4 !important;
+  border-color: #ff8dc7 !important;
+  box-shadow: 0 0 12px #ff69b4;
+}
+
+/* Panel styling */
+.react-flow__panel {
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid #ff69b4;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 6px rgba(255,105,180,0.2);
+}

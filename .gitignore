@@ -5,3 +5,6 @@ server/public
 vite.config.ts.*
 .env
 *.tar.gz
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
