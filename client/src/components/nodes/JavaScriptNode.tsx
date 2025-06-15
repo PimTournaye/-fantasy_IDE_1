@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
+import { connectionManager } from '../../lib/ConnectionManager.ts';
 
 interface JavaScriptNodeData {
   code: string;
@@ -10,6 +11,31 @@ export const JavaScriptNode = memo(({ id, data, isConnectable }: NodeProps) => {
   const nodeData = data as unknown as JavaScriptNodeData;
   const gridRef = useRef<HTMLDivElement>(null);
   const [output, setOutput] = useState<string>('');
+  const [outputData, setOutputData] = useState<any>({ x: 0, y: 0, z: 0, w: 0 });
+
+  // Propagate data to connected nodes when checkbox state changes
+  const propagateOutputData = useCallback(() => {
+    if (!gridRef.current) return;
+    
+    const checkboxes = gridRef.current.querySelectorAll('input[type="checkbox"]');
+    const checkedCount = Array.from(checkboxes).filter(cb => (cb as HTMLInputElement).checked).length;
+    const totalCount = checkboxes.length;
+    
+    // Create output data based on checkbox state
+    const newData = {
+      x: checkedCount / totalCount,  // Density of checked boxes
+      y: Math.sin(checkedCount * 0.1), // Sine wave based on count
+      z: Math.cos(checkedCount * 0.1), // Cosine wave based on count
+      w: checkedCount > 0 ? 1.0 : 0.0   // Binary flag for any checked
+    };
+    
+    setOutputData(newData);
+    
+    // Propagate to connected nodes
+    connectionManager.updateDataFlow(id, newData);
+    
+    console.log(`JavaScript node ${id} propagating data:`, newData);
+  }, [id]);
 
   // Create checkbox grid (32x32)
   useEffect(() => {
@@ -24,11 +50,12 @@ export const JavaScriptNode = memo(({ id, data, isConnectable }: NodeProps) => {
       checkbox.type = 'checkbox';
       checkbox.className = 'w-3 h-3 accent-yellow-500';
       checkbox.style.margin = '0';
+      checkbox.addEventListener('change', propagateOutputData); // Add change listener
       grid.appendChild(checkbox);
     }
     
     grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-  }, []);
+  }, [propagateOutputData]);
 
   const executeCode = useCallback(() => {
     try {
