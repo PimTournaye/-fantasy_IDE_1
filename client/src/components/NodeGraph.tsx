@@ -9,7 +9,6 @@ import {
   Connection,
   ReactFlowProvider,
   Controls,
-  MiniMap,
   Background,
   BackgroundVariant,
   ConnectionMode,
@@ -18,7 +17,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 // Import our custom node types
-import { WebGLNode, WebcamNode, JavaScriptNode, AINode } from './nodes/index.ts';
+import { WebGLNode, WebcamNode, JavaScriptNode, AINode, WebGPUNode, HDMINode, CheckboxGridNode } from './nodes/index.ts';
 import { connectionManager } from '../lib/ConnectionManager.ts';
 
 // Define custom node types
@@ -27,6 +26,9 @@ const nodeTypes = {
   webcam: WebcamNode,
   javascript: JavaScriptNode,
   ai: AINode,
+  webgpu: WebGPUNode,
+  hdmi: HDMINode,
+  checkbox: CheckboxGridNode,
 };
 
 interface NodeGraphProps {
@@ -109,10 +111,13 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
       
       // Define valid connection types
       const validConnections: Record<string, string[]> = {
-        webcam: ['webgl'],      // Webcam can connect to WebGL nodes
-        webgl: ['webgl', 'javascript'], // WebGL can connect to other WebGL or JavaScript nodes
-        javascript: ['webgl'],   // JavaScript can connect to WebGL
-        ai: ['webgl']           // AI can connect to WebGL
+        webcam: ['webgl', 'webgpu'],        // Webcam can connect to WebGL/WebGPU nodes
+        hdmi: ['webgl', 'webgpu'],          // HDMI can connect to WebGL/WebGPU nodes
+        checkbox: ['webgl', 'webgpu'],      // Checkbox can connect to WebGL/WebGPU nodes for patterns
+        webgl: ['webgl', 'webgpu', 'javascript'], // WebGL can connect to other graphics or JavaScript nodes
+        webgpu: ['webgl', 'webgpu', 'javascript'], // WebGPU can connect to other graphics or JavaScript nodes
+        javascript: ['webgl', 'webgpu'],    // JavaScript can connect to graphics nodes
+        ai: ['webgl', 'webgpu']             // AI can connect to graphics nodes
       };
       
       const sourceType = sourceNode.type || 'unknown';
@@ -156,13 +161,55 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
     console.log(`Data flow setup delegated to ConnectionManager: ${sourceNode.type} -> ${targetNode.type}`);
   }, []);
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log('Node clicked:', node.id);
-    onNodeSelect?.(node);
-  }, [onNodeSelect]);
-
   // Function to add new nodes
   const addNode = useCallback((type: string) => {
+    let defaultCode = `// New ${type} node`;
+    
+    if (type === 'webgl') {
+      defaultCode = `// New WebGL shader
+precision mediump float;
+uniform float u_time;
+uniform vec2 u_resolution;
+
+void main() {
+    vec2 st = gl_FragCoord.xy / u_resolution.xy;
+    vec3 color = vec3(sin(st.x * 10.0 + u_time), sin(st.y * 10.0 + u_time), 0.5);
+    gl_FragColor = vec4(color, 1.0);
+}`;
+    } else if (type === 'webgpu') {
+      defaultCode = `// New WebGPU shader
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+    var pos = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0), vec2<f32>(-1.0,  1.0),
+        vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0), vec2<f32>(-1.0,  1.0)
+    );
+    var output: VertexOutput;
+    output.position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+    output.uv = (pos[vertexIndex] + 1.0) * 0.5;
+    return output;
+}
+
+@fragment
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = input.uv;
+    let color = vec3<f32>(uv.x, uv.y, 0.5);
+    return vec4<f32>(color, 1.0);
+}`;
+    } else if (type === 'javascript') {
+      defaultCode = `// New JavaScript node
+function process(input) {
+    // Process input data here
+    console.log('Processing:', input);
+    return input;
+}`;
+    }
+
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
       type,
@@ -171,7 +218,7 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
         y: Math.random() * 300 + 100,
       },
       data: {
-        code: type === 'webgl' ? `// New ${type} node\nprecision mediump float;\nvoid main() {\n    gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);\n}` : `// New ${type} node`,
+        code: defaultCode,
         onEdit: (nodeId: string) => {
           const foundNode = nodes.find(n => n.id === nodeId);
           if (foundNode && onNodeSelect) {
@@ -194,46 +241,58 @@ export function NodeGraph({ nodes: externalNodes, onNodeSelect, onNodeUpdate }: 
         onEdgesChange={onEdgesChange}
         onEdgesDelete={onEdgesDelete}
         onConnect={onConnect}
-        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
         className="react-flow-dark-theme"
+        proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
         <Controls />
-        <MiniMap 
-          nodeColor="#ff69b4"
-          nodeStrokeWidth={3}
-          zoomable
-          pannable
-        />
         
         {/* Control Panel */}
-        <Panel position="top-right" className="space-x-2">
+        <Panel position="top-right" className="flex space-x-2">
           <button
             onClick={() => addNode('webgl')}
             className="neon-button"
           >
-            + WebGL
+          Add WebGL Tile
+          </button>
+          <button
+            onClick={() => addNode('webgpu')}
+            className="neon-button"
+          >
+          Add WebGPU Tile
           </button>
           <button
             onClick={() => addNode('webcam')}
             className="neon-button"
           >
-            + Webcam
+          Add Webcam Tile
+          </button>
+          <button
+            onClick={() => addNode('hdmi')}
+            className="neon-button"
+          >
+          Add HDMI Tile
+          </button>
+          <button
+            onClick={() => addNode('checkbox')}
+            className="neon-button"
+          >
+          Add Grid Tile
           </button>
           <button
             onClick={() => addNode('javascript')}
             className="neon-button"
           >
-            + JavaScript
+          Add JS Tile
           </button>
           <button
             onClick={() => addNode('ai')}
             className="neon-button"
           >
-            + AI
+          Add AI Tile
           </button>
         </Panel>
       </ReactFlow>

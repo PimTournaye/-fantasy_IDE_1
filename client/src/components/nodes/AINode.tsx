@@ -44,13 +44,24 @@ export const AINode = memo(({ id, data, isConnectable }: NodeProps) => {
   }, [response]);
 
   return (
-    <div className="ai-node bg-gray-800 border-2 border-purple-500 rounded-lg shadow-lg shadow-purple-500/20">
-      {/* Input handle */}
+    <div className="ai-node bg-gray-800 border-2 border-purple-500 rounded-lg shadow-lg shadow-purple-500/20" style={{ paddingBottom: '32px' }}>
+      {/* Input handle - bottom left */}
       <Handle 
         type="target" 
-        position={Position.Left} 
+        position={Position.Bottom}
         isConnectable={isConnectable}
-        className="w-3 h-3 bg-purple-500 border-2 border-purple-600"
+        style={{
+          left: '20px',
+          right: 'auto',
+          bottom: '24px',
+          top: 'auto',
+          width: '16px',
+          height: '16px',
+          background: '#ff69b4',
+          borderRadius: '50%',
+          border: '2px solid #ff69b4',
+          zIndex: 1
+        }}
       />
       
       {/* Node header */}
@@ -113,12 +124,23 @@ export const AINode = memo(({ id, data, isConnectable }: NodeProps) => {
         )}
       </div>
       
-      {/* Output handle */}
+      {/* Output handle - bottom right */}
       <Handle 
         type="source" 
-        position={Position.Right} 
+        position={Position.Bottom} 
         isConnectable={isConnectable}
-        className="w-3 h-3 bg-purple-500 border-2 border-purple-600"
+        style={{
+          right: '4px',
+          left: 'auto',
+          bottom: '24px',
+          top: 'auto',
+          width: '16px',
+          height: '16px',
+          background: '#ff69b4',
+          borderRadius: '50%',
+          border: '2px solid #ff69b4',
+          zIndex: 1
+        }}
       />
     </div>
   );

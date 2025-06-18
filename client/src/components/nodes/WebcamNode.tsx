@@ -67,7 +67,9 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
       userSelect: 'none',
       fontFamily: 'Bianzhidai, monospace',
       width: 'fit-content',
-      transition: 'all 0.3s ease-out'
+      height: 'fit-content',
+      transition: 'all 0.3s ease-out',
+      paddingBottom: '32px' // Ensure enough space for handles
     }}>
       {/* Node header */}
       <div style={{
@@ -83,54 +85,29 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
         borderBottom: '1px solid #ff69b4'
       }}>
         <span>WEBCAM</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={toggleWebcam}
-            style={{
-              background: '#1e1e1e',
-              border: '1px solid #ff69b4',
-              borderRadius: '4px',
-              padding: '2px 8px',
-              cursor: 'pointer',
-              fontFamily: 'Bianzhidai, monospace',
-              fontSize: '12px',
-              color: '#ffffff'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = '#ff69b4';
-              e.currentTarget.style.color = '#1e1e1e';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = '#1e1e1e';
-              e.currentTarget.style.color = '#ffffff';
-            }}
-          >
-            📹
-          </button>
-          <button
-            onClick={handleEdit}
-            style={{
-              background: '#1e1e1e',
-              border: '1px solid #ff69b4',
-              borderRadius: '4px',
-              padding: '2px 8px',
-              cursor: 'pointer',
-              fontFamily: 'Bianzhidai, monospace',
-              fontSize: '12px',
-              color: '#ffffff'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = '#ff69b4';
-              e.currentTarget.style.color = '#1e1e1e';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = '#1e1e1e';
-              e.currentTarget.style.color = '#ffffff';
-            }}
-          >
-            Edit
-          </button>
-        </div>
+        <button
+          onClick={toggleWebcam}
+          style={{
+            background: '#1e1e1e',
+            border: '1px solid #ff69b4',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            fontFamily: 'Bianzhidai, monospace',
+            fontSize: '12px',
+            color: '#ffffff'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#ff69b4';
+            e.currentTarget.style.color = '#1e1e1e';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = '#1e1e1e';
+            e.currentTarget.style.color = '#ffffff';
+          }}
+        >
+          📹
+        </button>
       </div>
       
       {/* Video content */}
@@ -167,17 +144,22 @@ export const WebcamNode = memo(({ id, data, isConnectable }: NodeProps) => {
         )}
       </div>
       
-      {/* Output handle */}
+      {/* Output handle - bottom right */}
       <Handle 
         type="source" 
-        position={Position.Right} 
+        position={Position.Bottom} 
         isConnectable={isConnectable}
         style={{
-          width: '12px',
-          height: '12px',
+          right: '4px',
+          left: 'auto',
+          bottom: '24px',
+          top: 'auto',
+          width: '16px',
+          height: '16px',
           background: '#ff69b4',
           borderRadius: '50%',
-          border: '2px solid #ff69b4'
+          border: '2px solid #ff69b4',
+          zIndex: 1
         }}
       />
     </div>

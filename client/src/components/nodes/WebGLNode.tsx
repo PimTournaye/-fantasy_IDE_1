@@ -265,19 +265,27 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
       userSelect: 'none',
       fontFamily: 'Bianzhidai, monospace',
       width: 'fit-content',
-      transition: 'all 0.3s ease-out'
+      height: 'fit-content',
+      transition: 'all 0.3s ease-out',
+      paddingBottom: '32px' // Ensure enough space for handles
     }}>
-      {/* Input handle */}
+      {/* Input handle - bottom left */}
       <Handle 
         type="target" 
-        position={Position.Left} 
+        position={Position.Bottom} 
         isConnectable={isConnectable}
         style={{
-          width: '12px',
-          height: '12px',
+          left: '20px',
+          right: 'auto',
+          bottom: '24px',
+          top: 'auto',
+          width: '16px',
+          height: '16px',
           background: '#ff69b4',
           borderRadius: '50%',
-          border: '2px solid #ff69b4'
+          border: '2px solid #ff69b4',
+          zIndex: 1
+          // position: 'absolute'
         }}
       />
       
@@ -336,17 +344,22 @@ export const WebGLNode = memo(({ id, data, isConnectable }: NodeProps) => {
         />
       </div>
       
-      {/* Output handle */}
+      {/* Output handle - bottom right */}
       <Handle 
         type="source" 
-        position={Position.Right} 
+        position={Position.Bottom} 
         isConnectable={isConnectable}
         style={{
-          width: '12px',
-          height: '12px',
+          right: '4px',
+          left: 'auto',
+          bottom: '24px',
+          top: 'auto',
+          width: '16px',
+          height: '16px',
           background: '#ff69b4',
           borderRadius: '50%',
-          border: '2px solid #ff69b4'
+          border: '2px solid #ff69b4',
+          zIndex: 1
         }}
       />
     </div>

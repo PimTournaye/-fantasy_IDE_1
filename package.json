@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/legacy-modes": "^6.5.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
     "@hookform/resolvers": "^3.9.1",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
